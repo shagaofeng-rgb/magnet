@@ -1,7 +1,7 @@
 export const site = {
   name: "COWIN MAGNET",
   legalName: "Quzhou Qiying Import & Export Co., Ltd.",
-  url: "https://www.cowinmagnet.com",
+  url: "https://bzmagnet.com",
   email: "davidsha@cowinmagnet.com",
   phone: "+86 156 6513 5205",
   whatsapp: "8615665135205",

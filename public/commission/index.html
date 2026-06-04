@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>销售佣金自动核算系统</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --blue: #2563eb;
+      --blue-dark: #1d4ed8;
+      --green: #16a34a;
+      --text: #172033;
+      --muted: #64748b;
+      --line: #dbe3ef;
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --danger: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Microsoft YaHei", Arial, sans-serif;
+      color: var(--text);
+      background: linear-gradient(180deg, #eef5ff 0%, #f8fafc 42%, #eef7f1 100%);
+      min-height: 100vh;
+    }
+    .shell { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 48px; }
+    .login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+    .login-card, .card {
+      background: rgba(255,255,255,.96);
+      border: 1px solid rgba(219,227,239,.9);
+      border-radius: 8px;
+      box-shadow: 0 18px 50px rgba(30,64,175,.10);
+    }
+    .login-card { width: min(440px, 100%); padding: 30px; }
+    h1, h2, h3 { margin: 0; letter-spacing: 0; }
+    h1 { font-size: 26px; line-height: 1.25; }
+    h2 { font-size: 20px; margin-bottom: 14px; }
+    h3 { font-size: 16px; margin-bottom: 10px; }
+    p { color: var(--muted); line-height: 1.75; margin: 8px 0 0; }
+    label { display: block; font-weight: 700; margin: 18px 0 8px; }
+    input[type="text"], input[type="password"], input[type="file"] {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 11px 12px;
+      font-size: 15px;
+      background: white;
+    }
+    input[type="file"] { padding: 10px; }
+    button {
+      border: 0;
+      border-radius: 6px;
+      background: var(--blue);
+      color: white;
+      font-weight: 700;
+      font-size: 15px;
+      padding: 12px 18px;
+      cursor: pointer;
+      min-height: 44px;
+    }
+    button:hover { background: var(--blue-dark); }
+    button.secondary { background: #e8eef8; color: #24324a; }
+    button.secondary:hover { background: #dce6f5; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .topbar { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 22px; }
+    .grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 18px; align-items: start; }
+    .card { padding: 22px; margin-bottom: 18px; }
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 16px; }
+    .step { border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #fbfdff; }
+    .step strong { display: block; font-size: 14px; }
+    .step span { display: block; color: var(--muted); font-size: 13px; line-height: 1.55; margin-top: 4px; }
+    .notice { border-left: 4px solid var(--green); background: #eefbf2; padding: 12px 14px; border-radius: 6px; color: #166534; line-height: 1.7; }
+    .error { color: var(--danger); margin-top: 10px; min-height: 22px; }
+    .status { white-space: pre-line; background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 14px; min-height: 160px; font-family: Consolas, monospace; font-size: 13px; line-height: 1.65; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px; text-align: left; vertical-align: top; }
+    th { background: #eef4ff; }
+    .hidden { display: none !important; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+    .file-row { display: grid; grid-template-columns: 1fr; gap: 4px; margin-bottom: 12px; }
+    .small { font-size: 13px; color: var(--muted); }
+    .ok { color: var(--green); font-weight: 700; }
+    @media (max-width: 860px) {
+      .grid, .steps { grid-template-columns: 1fr; }
+      .topbar { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <section id="loginPage" class="login-wrap">
+    <div class="login-card">
+      <h1>销售佣金自动核算系统</h1>
+      <p>请输入账号密码后进入。系统用于上传佣金明细和月度营收表，自动生成正式佣金核算文件。</p>
+      <label for="username">账号</label>
+      <input id="username" type="text" autocomplete="username" placeholder="请输入账号" />
+      <label for="password">密码</label>
+      <input id="password" type="password" autocomplete="current-password" placeholder="请输入密码" />
+      <div class="actions">
+        <button id="loginBtn">登录</button>
+      </div>
+      <div id="loginError" class="error"></div>
+    </div>
+  </section>
+
+  <main id="appPage" class="shell hidden">
+    <div class="topbar">
+      <div>
+        <h1>销售佣金自动核算系统</h1>
+        <p>上传原始销售佣金明细和 25 财年月度营收表，系统会按当前流程算法自动生成正式 Excel 文件。</p>
+      </div>
+      <button id="logoutBtn" class="secondary">退出登录</button>
+    </div>
+
+    <div class="grid">
+      <section>
+        <div class="card">
+          <h2>上传表格</h2>
+          <div class="file-row">
+            <label for="commissionFile">1. 销售佣金明细表</label>
+            <input id="commissionFile" type="file" accept=".xlsx,.xls" />
+            <span class="small">示例：赣州销售佣金明细.xlsx，需包含「会广满到账」「消耗」两张表。</span>
+          </div>
+          <div class="file-row">
+            <label for="revenueFile">2. 月度营收表</label>
+            <input id="revenueFile" type="file" accept=".xlsx,.xls" />
+            <span class="small">示例：25财年月度营收.xlsx，用于按佣金计算月份的上一月新签数计算牌级。</span>
+          </div>
+          <div class="actions">
+            <button id="generateBtn">开始生成正式文件</button>
+            <button id="downloadBtn" class="hidden" disabled>下载正式文件</button>
+            <button id="clearBtn" class="secondary">清空重选</button>
+          </div>
+          <div id="mainError" class="error"></div>
+          <p id="downloadHint" class="small hidden">正式文件已准备好。点击“下载正式文件”后，文件会保存到浏览器默认下载目录，通常是“下载/Downloads”文件夹。</p>
+        </div>
+
+        <div class="card">
+          <h2>当前算法规则</h2>
+          <table>
+            <thead><tr><th>项目</th><th>规则</th></tr></thead>
+            <tbody>
+              <tr><td>会广满到账-南昌/赣州新签</td><td>10% + 牌级</td></tr>
+              <tr><td>会广满到账-上饶/宜春/吉安新签</td><td>10% + 2% + 牌级</td></tr>
+              <tr><td>会广满到账-平续</td><td>2% + 平续牌级</td></tr>
+              <tr><td>消耗</td><td>2% + 新签牌级；主管基础减半为 1% + 牌级</td></tr>
+              <tr><td>L2 人员</td><td>邹瑶、魏峰、曾庆涛平时按 L1 基础，不加牌级</td></tr>
+              <tr><td>主管</td><td>吴芬芬、毛徐仁基础佣金减半后加牌级</td></tr>
+              <tr><td>不计算</td><td>陈继新、李颖</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside>
+        <div class="card">
+          <h2>生成状态</h2>
+          <div id="status" class="status">等待上传文件...</div>
+        </div>
+        <div class="card">
+          <h2>使用说明</h2>
+          <div class="notice">
+            生成完成后会显示「下载正式文件」按钮，点击后保存到本机。文件包含原始「会广满到账」「消耗」两张表，并新增「计算规则说明」「佣金汇总」和名单内每个销售的「佣金信」明细表。
+          </div>
+          <div class="steps">
+            <div class="step"><strong>1 上传明细</strong><span>选择原始佣金明细表。</span></div>
+            <div class="step"><strong>2 上传营收</strong><span>选择月度营收表。</span></div>
+            <div class="step"><strong>3 自动计算</strong><span>系统写入佣金率和金额。</span></div>
+            <div class="step"><strong>4 下载文件</strong><span>保存正式核算版。</span></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+    const USERNAME = 'yuexuantong';
+    const PASSWORD = 'hello1234';
+
+    const $ = (id) => document.getElementById(id);
+    let pendingWorkbook = null;
+    let pendingFilename = '';
+    const log = (msg) => { $('status').textContent += '\n' + msg; };
+    const setStatus = (msg) => { $('status').textContent = msg; };
+    const parseNum = (v) => {
+      if (v === null || v === undefined || v === '') return 0;
+      if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+      const n = Number(String(v).replace(/,/g, '').replace(/%/g, '').trim());
+      return Number.isFinite(n) ? n : 0;
+    };
+    const text = (v) => (v === null || v === undefined) ? '' : String(v).trim();
+    const safeSheetName = (name) => String(name).replace(/[\\\/\?\*\[\]:]/g, '').slice(0, 25) || '未命名';
+
+    function showApp() {
+      $('loginPage').classList.add('hidden');
+      $('appPage').classList.remove('hidden');
+    }
+
+    function showLogin() {
+      $('loginPage').classList.remove('hidden');
+      $('appPage').classList.add('hidden');
+    }
+
+    $('loginBtn').addEventListener('click', () => {
+      const u = $('username').value.trim();
+      const p = $('password').value;
+      if (u === USERNAME && p === PASSWORD) {
+        sessionStorage.setItem('commission_login', '1');
+        $('loginError').textContent = '';
+        showApp();
+      } else {
+        $('loginError').textContent = '账号或密码不正确';
+      }
+    });
+
+    $('password').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') $('loginBtn').click();
+    });
+
+    $('logoutBtn').addEventListener('click', () => {
+      sessionStorage.removeItem('commission_login');
+      showLogin();
+    });
+
+    $('clearBtn').addEventListener('click', () => {
+      $('commissionFile').value = '';
+      $('revenueFile').value = '';
+      $('mainError').textContent = '';
+      pendingWorkbook = null;
+      pendingFilename = '';
+      $('downloadBtn').classList.add('hidden');
+      $('downloadBtn').disabled = true;
+      $('downloadHint').classList.add('hidden');
+      setStatus('等待上传文件...');
+    });
+
+    if (sessionStorage.getItem('commission_login') === '1') showApp();
+
+    function readWorkbook(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const data = new Uint8Array(e.target.result);
+            resolve(XLSX.read(data, { type: 'array', cellDates: false, raw: false }));
+          } catch (err) {
+            reject(err);
+          }
+        };
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(file);
+      });
+    }
+
+    function sheetRows(ws) {
+      return XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+    }
+
+    function findCol(rows, names) {
+      const header = rows[0] || [];
+      for (let i = 0; i < header.length; i++) {
+        if (names.includes(text(header[i]))) return i;
+      }
+      return -1;
+    }
+
+    function previousMonthSheet(yyyyMm) {
+      const m = String(yyyyMm || '').match(/(\d{4})[-\/年]?(\d{1,2})/);
+      if (!m) return '';
+      let year = Number(m[1]);
+      let month = Number(m[2]);
+      if (!year || !month) return '';
+      month -= 1;
+      if (month === 0) { year -= 1; month = 12; }
+      return `${String(year).slice(-2)}年${month}月`;
+    }
+
+    function rankName(count) {
+      if (count >= 3) return '钻牌';
+      if (count >= 2) return '金牌';
+      if (count >= 1) return '银牌';
+      return '铜牌';
+    }
+
+    function tierAdd(rank, kind) {
+      if (kind === '新签') {
+        if (rank === '银牌') return 0.04;
+        if (rank === '金牌') return 0.06;
+        if (rank === '钻牌') return 0.08;
+        return 0;
+      }
+      if (kind === '平续') {
+        if (rank === '银牌') return 0.01;
+        if (rank === '金牌') return 0.02;
+        if (rank === '钻牌') return 0.03;
+        return 0;
+      }
+      return 0;
+    }
+
+    function roleOf(name) {
+      if (['陈继新', '李颖'].includes(name)) return '不计算';
+      if (['吴芬芬', '毛徐仁'].includes(name)) return '主管';
+      if (['邹瑶', '魏峰', '曾庆涛'].includes(name)) return 'L2平时按L1无牌级';
+      return 'L1';
+    }
+
+    function buildRankMaps(revenueWb) {
+      const maps = {};
+      const roster = new Set();
+      for (const sheetName of revenueWb.SheetNames) {
+        const rows = sheetRows(revenueWb.Sheets[sheetName]);
+        const nameCol = findCol(rows, ['客户经理名称']);
+        const newCol = findCol(rows, ['本月新签']);
+        if (nameCol < 0 || newCol < 0) continue;
+        const map = {};
+        for (let r = 1; r < rows.length; r++) {
+          const name = text(rows[r][nameCol]);
+          if (!name) continue;
+          roster.add(name);
+          const count = parseNum(rows[r][newCol]);
+          map[name] = { count, rank: rankName(count) };
+        }
+        maps[sheetName] = map;
+      }
+      maps.__roster = roster;
+      return maps;
+    }
+
+    function getRankForRow(rankMaps, name, commissionMonth) {
+      const sheet = previousMonthSheet(commissionMonth);
+      if (sheet && rankMaps[sheet] && rankMaps[sheet][name]) return rankMaps[sheet][name];
+      return { count: 0, rank: '铜牌' };
+    }
+
+    function isLowerMarket(row) {
+      const haystack = [row[1], row[40], row[51]].map(text).join(' ');
+      return /上饶|宜春|吉安/.test(haystack);
+    }
+
+    function cgsCategory(row) {
+      const product = text(row[3]);
+      const attr = text(row[27]);
+      if (/新签|new/i.test(attr) || /新签/.test(product)) return '新签';
+      return '平续';
+    }
+
+    function cgsRate(row, name, rankMaps) {
+      const role = roleOf(name);
+      const category = cgsCategory(row);
+      const rankInfo = getRankForRow(rankMaps, name, row[6]);
+      const lower = isLowerMarket(row);
+      if (role === '不计算') {
+        return { rate: 0, role, rank: rankInfo.rank, count: rankInfo.count, rule: '陈继新、李颖股东不用算' };
+      }
+      let base = 0;
+      if (category === '新签') {
+        if (role === '主管') base = 0.05;
+        else base = lower ? 0.12 : 0.10;
+      } else {
+        base = role === '主管' ? 0.01 : 0.02;
+      }
+      const tier = (role === 'L1' || role === '主管') ? tierAdd(rankInfo.rank, category) : 0;
+      const region = lower ? '上饶/宜春/吉安' : '南昌/赣州';
+      const rule = role === 'L2平时按L1无牌级'
+        ? `${region}；${category}；L2平时按L1基础，不加牌级`
+        : `${region}；${category}；基础佣金+${rankInfo.rank}牌级`;
+      return { rate: base + tier, role, rank: rankInfo.rank, count: rankInfo.count, rule };
+    }
+
+    function consumeRate(row, name, rankMaps) {
+      const role = roleOf(name);
+      const rankInfo = getRankForRow(rankMaps, name, row[4]);
+      if (role === '不计算') {
+        return { rate: 0, role, rank: rankInfo.rank, count: rankInfo.count, rule: '陈继新、李颖股东不用算' };
+      }
+      const base = role === '主管' ? 0.01 : 0.02;
+      const tier = (role === 'L1' || role === '主管') ? tierAdd(rankInfo.rank, '新签') : 0;
+      const rule = role === 'L2平时按L1无牌级'
+        ? '消耗；L2平时按L1基础2%，不加牌级'
+        : `消耗；基础佣金+${rankInfo.rank}牌级`;
+      return { rate: base + tier, role, rank: rankInfo.rank, count: rankInfo.count, rule };
+    }
+
+    function addSummary(summary, name, cgs, consume) {
+      if (!summary[name]) summary[name] = { cgs: 0, consume: 0 };
+      summary[name].cgs += cgs;
+      summary[name].consume += consume;
+    }
+
+    function ensurePerson(summary, details, name) {
+      if (!name) return;
+      if (!summary[name]) summary[name] = { cgs: 0, consume: 0 };
+      if (!details[name]) details[name] = [];
+    }
+
+    function setCellFormat(ws, rangeRef, format) {
+      const range = XLSX.utils.decode_range(rangeRef);
+      for (let r = range.s.r; r <= range.e.r; r++) {
+        for (let c = range.s.c; c <= range.e.c; c++) {
+          const addr = XLSX.utils.encode_cell({ r, c });
+          if (ws[addr]) ws[addr].z = format;
+        }
+      }
+    }
+
+    function makeSheet(rows) {
+      return XLSX.utils.aoa_to_sheet(rows);
+    }
+
+    function calculate(commissionWb, revenueWb) {
+      const rankMaps = buildRankMaps(revenueWb);
+      const cgsName = commissionWb.SheetNames.find(n => n === '会广满到账');
+      const consumeName = commissionWb.SheetNames.find(n => n === '消耗');
+      if (!cgsName || !consumeName) throw new Error('佣金明细表必须包含「会广满到账」和「消耗」两张表');
+
+      const outWb = XLSX.utils.book_new();
+      const summary = {};
+      const details = {};
+      const roster = new Set(rankMaps.__roster || []);
+
+      const cgsRows = sheetRows(commissionWb.Sheets[cgsName]);
+      for (let r = 1; r < cgsRows.length; r++) {
+        const row = cgsRows[r];
+        const name = text(row[50]);
+        if (!name) continue;
+        roster.add(name);
+        const o = parseNum(row[14]), p = parseNum(row[15]), q = parseNum(row[16]), rr = parseNum(row[17]);
+        const info = cgsRate(row, name, rankMaps);
+        const commission = (o + p + q + rr) * info.rate;
+        row[7] = '';
+        row[8] = commission;
+        [o, p, q, rr].forEach((amount, idx) => { row[18 + idx] = (amount !== 0 || info.rate !== 0) ? info.rate : ''; });
+        addSummary(summary, name, commission, 0);
+        ensurePerson(summary, details, name);
+        details[name].push(['会广满到账', text(row[10]), text(row[1]), text(row[3]), o + p + q + rr, info.rate, commission, info.role, info.rank, info.count, info.rule]);
+      }
+      const cgsWs = makeSheet(cgsRows);
+      setCellFormat(cgsWs, 'S:V', '0.00%');
+      setCellFormat(cgsWs, 'I:I', '#,##0.00');
+      XLSX.utils.book_append_sheet(outWb, cgsWs, '会广满到账');
+
+      const consumeRows = sheetRows(commissionWb.Sheets[consumeName]);
+      for (let r = 1; r < consumeRows.length; r++) {
+        const row = consumeRows[r];
+        const name = text(row[22]);
+        if (!name) continue;
+        roster.add(name);
+        const h = parseNum(row[7]), i = parseNum(row[8]), j = parseNum(row[9]), k = parseNum(row[10]);
+        const info = consumeRate(row, name, rankMaps);
+        const commission = (h + i + j + k) * info.rate;
+        row[15] = commission;
+        [h, i, j, k].forEach((amount, idx) => { row[11 + idx] = (amount !== 0 || info.rate !== 0) ? info.rate : ''; });
+        addSummary(summary, name, 0, commission);
+        ensurePerson(summary, details, name);
+        details[name].push(['消耗', '', text(row[1]), text(row[3]), h + i + j + k, info.rate, commission, info.role, info.rank, info.count, info.rule]);
+      }
+      const consumeWs = makeSheet(consumeRows);
+      setCellFormat(consumeWs, 'L:O', '0.00%');
+      setCellFormat(consumeWs, 'P:P', '#,##0.00');
+      XLSX.utils.book_append_sheet(outWb, consumeWs, '消耗');
+
+      const ruleRows = [
+        ['项目', '按流程文件采用的规则'],
+        ['会广满到账-南昌/赣州-新签', '10% + 牌级；牌级按佣金计算月份上一月营收表中的本月新签数'],
+        ['会广满到账-南昌/赣州-平续', '2% + 平续牌级；0单0%，1单1%，2单2%，3单3%'],
+        ['会广满到账-上饶/宜春/吉安-新签', '10% + 2% + 牌级'],
+        ['会广满到账-上饶/宜春/吉安-平续', '2% + 平续牌级'],
+        ['L1新签牌级', '0单铜牌0%，1单银牌4%，2单金牌6%，3单及以上钻牌8%'],
+        ['L1平续牌级', '0单铜牌0%，1单银牌1%，2单金牌2%，3单及以上钻牌3%'],
+        ['L2人员', '邹瑶、魏峰、曾庆涛按照季度结算，平时都按L1基础，不加牌级'],
+        ['主管', '吴芬芬、毛徐仁基础佣金减半后再加牌级；CGS新签5%+牌级，平续1%+牌级'],
+        ['股东', '陈继新、李颖不用计算'],
+        ['消耗', '按流程文件「平续：2%+牌级」；主管按基础减半为1%+牌级；L2不加牌级']
+      ];
+      XLSX.utils.book_append_sheet(outWb, makeSheet(ruleRows), '计算规则说明');
+
+      roster.forEach(name => ensurePerson(summary, details, name));
+
+      const summaryRows = [['销售姓名', '角色', '会广满到账佣金', '消耗佣金', '佣金合计']];
+      Array.from(roster).sort().forEach(name => {
+        summaryRows.push([name, roleOf(name), summary[name].cgs, summary[name].consume, summary[name].cgs + summary[name].consume]);
+      });
+      const summaryWs = makeSheet(summaryRows);
+      setCellFormat(summaryWs, 'C:E', '#,##0.00');
+      XLSX.utils.book_append_sheet(outWb, summaryWs, '佣金汇总');
+
+      Array.from(roster).sort().forEach(name => {
+        const rows = [['来源表', '订单行号', '客户名称', '产品类型', '参与计算金额', '佣金率', '佣金金额', '角色', '牌级', '上月新签数', '计算规则']];
+        if (details[name].length === 0) {
+          rows.push(['无明细', '', '', '', 0, '', 0, roleOf(name), '', '', '名单内销售，本次上传明细中无可计算记录']);
+        } else {
+          details[name].forEach(x => rows.push(x));
+        }
+        const total = summary[name].cgs + summary[name].consume;
+        rows.push(['合计', '', '', '', '', '', total, '', '', '', '']);
+        const ws = makeSheet(rows);
+        setCellFormat(ws, 'E:E', '#,##0.00');
+        setCellFormat(ws, 'F:F', '0.00%');
+        setCellFormat(ws, 'G:G', '#,##0.00');
+        XLSX.utils.book_append_sheet(outWb, ws, safeSheetName(name + '佣金信'));
+      });
+
+      return { outWb, summary, roster };
+    }
+
+    $('downloadBtn').addEventListener('click', () => {
+      if (!pendingWorkbook || !pendingFilename) {
+        $('mainError').textContent = '请先生成正式文件';
+        return;
+      }
+      try {
+        const data = XLSX.write(pendingWorkbook, { bookType: 'xlsx', type: 'array' });
+        const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = pendingFilename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        log('已触发下载：' + pendingFilename + '\n请到浏览器默认下载目录查看。');
+      } catch (err) {
+        console.error(err);
+        $('mainError').textContent = '下载失败：' + (err.message || err);
+        log('下载失败：' + (err.message || err));
+      }
+    });
+
+    $('generateBtn').addEventListener('click', async () => {
+      $('mainError').textContent = '';
+      const commissionFile = $('commissionFile').files[0];
+      const revenueFile = $('revenueFile').files[0];
+      if (!commissionFile || !revenueFile) {
+        $('mainError').textContent = '请先上传销售佣金明细表和月度营收表';
+        return;
+      }
+      pendingWorkbook = null;
+      pendingFilename = '';
+      $('downloadBtn').classList.add('hidden');
+      $('downloadBtn').disabled = true;
+      $('downloadHint').classList.add('hidden');
+      $('generateBtn').disabled = true;
+      setStatus('开始读取文件...');
+      try {
+        const [commissionWb, revenueWb] = await Promise.all([readWorkbook(commissionFile), readWorkbook(revenueFile)]);
+        log('文件读取完成');
+        log('开始计算佣金...');
+        const { outWb, summary, roster } = calculate(commissionWb, revenueWb);
+        log('计算完成，名单人数：' + roster.size);
+        const date = new Date();
+        const stamp = `${date.getFullYear()}${String(date.getMonth()+1).padStart(2,'0')}${String(date.getDate()).padStart(2,'0')}_${String(date.getHours()).padStart(2,'0')}${String(date.getMinutes()).padStart(2,'0')}`;
+        const filename = `销售佣金明细_正式核算版_${stamp}.xlsx`;
+        pendingWorkbook = outWb;
+        pendingFilename = filename;
+        $('downloadBtn').classList.remove('hidden');
+        $('downloadBtn').disabled = false;
+        $('downloadHint').classList.remove('hidden');
+        log('正式文件已生成，请点击“下载正式文件”按钮保存。');
+      } catch (err) {
+        console.error(err);
+        $('mainError').textContent = err.message || '生成失败，请检查表格格式';
+        log('生成失败：' + (err.message || err));
+      } finally {
+        $('generateBtn').disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

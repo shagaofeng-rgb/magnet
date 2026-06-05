@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>销售佣金自动核算系统</title>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <style>
     :root {
       --blue: #2563eb;
@@ -129,11 +130,11 @@
           </div>
           <div class="actions">
             <button id="generateBtn">开始生成正式文件</button>
-            <button id="downloadBtn" class="hidden" disabled>下载正式文件</button>
+            <button id="downloadBtn" class="hidden" disabled>下载正式压缩包</button>
             <button id="clearBtn" class="secondary">清空重选</button>
           </div>
           <div id="mainError" class="error"></div>
-          <p id="downloadHint" class="small hidden">正式文件已准备好。点击“下载正式文件”后，文件会保存到浏览器默认下载目录，通常是“下载/Downloads”文件夹。</p>
+          <p id="downloadHint" class="small hidden">正式压缩包已准备好。点击“下载正式压缩包”后，文件会保存到浏览器默认下载目录，通常是“下载/Downloads”文件夹。</p>
         </div>
 
         <div class="card">
@@ -161,7 +162,7 @@
         <div class="card">
           <h2>使用说明</h2>
           <div class="notice">
-            生成完成后会显示「下载正式文件」按钮，点击后保存到本机。文件包含原始「会广满到账」「消耗」两张表，并新增「计算规则说明」「佣金汇总」和名单内每个销售的「佣金信」明细表。
+            生成完成后会显示「下载正式压缩包」按钮，点击后保存到本机。压缩包内包含一份总核算表，以及每个有佣金人员独立的佣金信 Excel；没有佣金的人员不生成个人佣金信。
           </div>
           <div class="steps">
             <div class="step"><strong>1 上传明细</strong><span>选择原始佣金明细表。</span></div>
@@ -179,7 +180,7 @@
     const PASSWORD = 'hello1234';
 
     const $ = (id) => document.getElementById(id);
-    let pendingWorkbook = null;
+    let pendingBlob = null;
     let pendingFilename = '';
     const log = (msg) => { $('status').textContent += '\n' + msg; };
     const setStatus = (msg) => { $('status').textContent = msg; };
@@ -191,6 +192,8 @@
     };
     const text = (v) => (v === null || v === undefined) ? '' : String(v).trim();
     const safeSheetName = (name) => String(name).replace(/[\\\/\?\*\[\]:]/g, '').slice(0, 25) || '未命名';
+    const safeFileName = (name) => String(name).replace(/[\\\/\?\*\[\]:<>|"]/g, '').replace(/\s+/g, '').slice(0, 80) || '未命名';
+    const hasMoney = (value) => Math.abs(Number(value) || 0) > 0.000001;
 
     function showApp() {
       $('loginPage').classList.add('hidden');
@@ -227,7 +230,7 @@
       $('commissionFile').value = '';
       $('revenueFile').value = '';
       $('mainError').textContent = '';
-      pendingWorkbook = null;
+      pendingBlob = null;
       pendingFilename = '';
       $('downloadBtn').classList.add('hidden');
       $('downloadBtn').disabled = true;
@@ -339,10 +342,20 @@
       return /上饶|宜春|吉安/.test(haystack);
     }
 
+    function isNewSignText(value) {
+      const source = text(value);
+      return /新签/i.test(source) || /(^|[^a-z])new([^a-z]|$)/i.test(source);
+    }
+
+    function isRenewText(value) {
+      return /续签|renew/i.test(text(value));
+    }
+
     function cgsCategory(row) {
       const product = text(row[3]);
       const attr = text(row[27]);
-      if (/新签|new/i.test(attr) || /新签/.test(product)) return '新签';
+      if (isRenewText(attr) || isRenewText(product)) return '平续';
+      if (isNewSignText(attr) || isNewSignText(product)) return '新签';
       return '平续';
     }
 
@@ -407,6 +420,38 @@
 
     function makeSheet(rows) {
       return XLSX.utils.aoa_to_sheet(rows);
+    }
+
+    function makePersonWorkbook(name, rows) {
+      const wb = XLSX.utils.book_new();
+      const ws = makeSheet(rows);
+      setCellFormat(ws, 'E:E', '#,##0.00');
+      setCellFormat(ws, 'F:F', '0.00%');
+      setCellFormat(ws, 'G:G', '#,##0.00');
+      XLSX.utils.book_append_sheet(wb, ws, safeSheetName(name + '佣金信'));
+      return wb;
+    }
+
+    function workbookData(workbook) {
+      return XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    }
+
+    async function buildZip(result, stamp) {
+      if (!window.JSZip) throw new Error('压缩包组件加载失败，请刷新页面后重试');
+      const zip = new JSZip();
+      zip.file(`销售佣金明细_正式核算版_${stamp}.xlsx`, workbookData(result.outWb));
+      const folder = zip.folder('个人佣金信');
+      result.personFiles.forEach((item) => {
+        folder.file(item.filename, workbookData(item.workbook));
+      });
+      zip.file('生成说明.txt', [
+        '销售佣金自动核算系统',
+        `生成时间：${stamp}`,
+        `佣金汇总人数：${result.payablePeople.length}`,
+        `未生成个人佣金信人数：${result.skippedPeople.length}`,
+        '说明：压缩包内总核算表包含会广满到账、消耗、计算规则说明、佣金汇总；个人佣金信为每个有佣金人员单独一个 Excel。'
+      ].join('\n'));
+      return zip.generateAsync({ type: 'blob' });
     }
 
     function calculate(commissionWb, revenueWb) {
@@ -476,44 +521,44 @@
       ];
       XLSX.utils.book_append_sheet(outWb, makeSheet(ruleRows), '计算规则说明');
 
-      roster.forEach(name => ensurePerson(summary, details, name));
-
       const summaryRows = [['销售姓名', '角色', '会广满到账佣金', '消耗佣金', '佣金合计']];
-      Array.from(roster).sort().forEach(name => {
+      const payablePeople = Array.from(roster)
+        .filter(name => summary[name] && hasMoney(summary[name].cgs + summary[name].consume))
+        .sort();
+      const skippedPeople = Array.from(roster)
+        .filter(name => !summary[name] || !hasMoney(summary[name].cgs + summary[name].consume))
+        .sort();
+
+      payablePeople.forEach(name => {
         summaryRows.push([name, roleOf(name), summary[name].cgs, summary[name].consume, summary[name].cgs + summary[name].consume]);
       });
       const summaryWs = makeSheet(summaryRows);
       setCellFormat(summaryWs, 'C:E', '#,##0.00');
       XLSX.utils.book_append_sheet(outWb, summaryWs, '佣金汇总');
 
-      Array.from(roster).sort().forEach(name => {
+      const personFiles = payablePeople.map(name => {
         const rows = [['来源表', '订单行号', '客户名称', '产品类型', '参与计算金额', '佣金率', '佣金金额', '角色', '牌级', '上月新签数', '计算规则']];
-        if (details[name].length === 0) {
-          rows.push(['无明细', '', '', '', 0, '', 0, roleOf(name), '', '', '名单内销售，本次上传明细中无可计算记录']);
-        } else {
-          details[name].forEach(x => rows.push(x));
-        }
+        (details[name] || []).filter(x => hasMoney(x[6])).forEach(x => rows.push(x));
         const total = summary[name].cgs + summary[name].consume;
         rows.push(['合计', '', '', '', '', '', total, '', '', '', '']);
-        const ws = makeSheet(rows);
-        setCellFormat(ws, 'E:E', '#,##0.00');
-        setCellFormat(ws, 'F:F', '0.00%');
-        setCellFormat(ws, 'G:G', '#,##0.00');
-        XLSX.utils.book_append_sheet(outWb, ws, safeSheetName(name + '佣金信'));
+        return {
+          name,
+          filename: `${safeFileName(name)}佣金信.xlsx`,
+          workbook: makePersonWorkbook(name, rows),
+          total
+        };
       });
 
-      return { outWb, summary, roster };
+      return { outWb, summary, roster, payablePeople, skippedPeople, personFiles };
     }
 
     $('downloadBtn').addEventListener('click', () => {
-      if (!pendingWorkbook || !pendingFilename) {
-        $('mainError').textContent = '请先生成正式文件';
+      if (!pendingBlob || !pendingFilename) {
+        $('mainError').textContent = '请先生成正式压缩包';
         return;
       }
       try {
-        const data = XLSX.write(pendingWorkbook, { bookType: 'xlsx', type: 'array' });
-        const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        const url = URL.createObjectURL(blob);
+        const url = URL.createObjectURL(pendingBlob);
         const a = document.createElement('a');
         a.href = url;
         a.download = pendingFilename;
@@ -537,7 +582,7 @@
         $('mainError').textContent = '请先上传销售佣金明细表和月度营收表';
         return;
       }
-      pendingWorkbook = null;
+      pendingBlob = null;
       pendingFilename = '';
       $('downloadBtn').classList.add('hidden');
       $('downloadBtn').disabled = true;
@@ -548,17 +593,18 @@
         const [commissionWb, revenueWb] = await Promise.all([readWorkbook(commissionFile), readWorkbook(revenueFile)]);
         log('文件读取完成');
         log('开始计算佣金...');
-        const { outWb, summary, roster } = calculate(commissionWb, revenueWb);
-        log('计算完成，名单人数：' + roster.size);
+        const result = calculate(commissionWb, revenueWb);
+        log('计算完成，名单人数：' + result.roster.size + '；有佣金人数：' + result.payablePeople.length + '；未生成个人表人数：' + result.skippedPeople.length);
         const date = new Date();
         const stamp = `${date.getFullYear()}${String(date.getMonth()+1).padStart(2,'0')}${String(date.getDate()).padStart(2,'0')}_${String(date.getHours()).padStart(2,'0')}${String(date.getMinutes()).padStart(2,'0')}`;
-        const filename = `销售佣金明细_正式核算版_${stamp}.xlsx`;
-        pendingWorkbook = outWb;
+        const filename = `销售佣金核算结果_${stamp}.zip`;
+        log('正在打包总表和个人佣金信...');
+        pendingBlob = await buildZip(result, stamp);
         pendingFilename = filename;
         $('downloadBtn').classList.remove('hidden');
         $('downloadBtn').disabled = false;
         $('downloadHint').classList.remove('hidden');
-        log('正式文件已生成，请点击“下载正式文件”按钮保存。');
+        log('正式压缩包已生成，请点击“下载正式压缩包”按钮保存。');
       } catch (err) {
         console.error(err);
         $('mainError').textContent = err.message || '生成失败，请检查表格格式';

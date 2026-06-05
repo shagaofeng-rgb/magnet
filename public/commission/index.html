@@ -436,20 +436,28 @@
       return XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
     }
 
+    function personFolderName(name) {
+      if (['胡炳南', '毛徐仁', '谢雄', '邹瑶'].includes(name)) return '南昌-破峰';
+      if (['安香香', '程功吉', '孙灵芝', '魏峰', '左倩'].includes(name)) return '南昌-稳赢天下';
+      return '';
+    }
+
     async function buildZip(result, stamp) {
       if (!window.JSZip) throw new Error('压缩包组件加载失败，请刷新页面后重试');
       const zip = new JSZip();
       zip.file(`销售佣金明细_正式核算版_${stamp}.xlsx`, workbookData(result.outWb));
-      const folder = zip.folder('个人佣金信');
       result.personFiles.forEach((item) => {
-        folder.file(item.filename, workbookData(item.workbook));
+        const folderName = personFolderName(item.name);
+        const target = folderName ? zip.folder(folderName) : zip;
+        target.file(item.filename, workbookData(item.workbook));
       });
       zip.file('生成说明.txt', [
         '销售佣金自动核算系统',
         `生成时间：${stamp}`,
         `佣金汇总人数：${result.payablePeople.length}`,
         `未生成个人佣金信人数：${result.skippedPeople.length}`,
-        '说明：压缩包内总核算表包含会广满到账、消耗、计算规则说明、佣金汇总；个人佣金信为每个有佣金人员单独一个 Excel。'
+        '说明：压缩包内总核算表包含会广满到账、消耗、计算规则说明、佣金汇总；个人佣金信为每个有佣金人员单独一个 Excel。',
+        '南昌海猪分组：胡炳南、毛徐仁、谢雄、邹瑶放入“南昌-破峰”；安香香、程功吉、孙灵芝、魏峰、左倩放入“南昌-稳赢天下”；其余人员放在压缩包根目录。'
       ].join('\n'));
       return zip.generateAsync({ type: 'blob' });
     }
@@ -466,6 +474,8 @@
       const roster = new Set(rankMaps.__roster || []);
 
       const cgsRows = sheetRows(commissionWb.Sheets[cgsName]);
+      const paymentTypeCol = findCol(cgsRows, ['付款类型']);
+      const refundActualCol = findCol(cgsRows, ['到账金额_退款扣除实际使用', '到账金额-退款扣除实际使用']);
       for (let r = 1; r < cgsRows.length; r++) {
         const row = cgsRows[r];
         const name = text(row[50]);
@@ -473,13 +483,28 @@
         roster.add(name);
         const o = parseNum(row[14]), p = parseNum(row[15]), q = parseNum(row[16]), rr = parseNum(row[17]);
         const info = cgsRate(row, name, rankMaps);
-        const commission = (o + p + q + rr) * info.rate;
+        const isBlacklistRefund = paymentTypeCol >= 0 && /黑名单退款/.test(text(row[paymentTypeCol]));
+        const refundActualAmount = refundActualCol >= 0 ? parseNum(row[refundActualCol]) : 0;
+        const calcAmount = isBlacklistRefund ? refundActualAmount : (o + p + q + rr);
+        const commission = calcAmount * info.rate;
         row[7] = '';
         row[8] = commission;
         [o, p, q, rr].forEach((amount, idx) => { row[18 + idx] = (amount !== 0 || info.rate !== 0) ? info.rate : ''; });
         addSummary(summary, name, commission, 0);
         ensurePerson(summary, details, name);
-        details[name].push(['会广满到账', text(row[10]), text(row[1]), text(row[3]), o + p + q + rr, info.rate, commission, info.role, info.rank, info.count, info.rule]);
+        details[name].push([
+          '会广满到账',
+          text(row[10]),
+          text(row[1]),
+          text(row[3]),
+          calcAmount,
+          info.rate,
+          commission,
+          info.role,
+          info.rank,
+          info.count,
+          isBlacklistRefund ? `${info.rule}；付款类型为黑名单退款，按到账金额_退款扣除实际使用计算` : info.rule
+        ]);
       }
       const cgsWs = makeSheet(cgsRows);
       setCellFormat(cgsWs, 'S:V', '0.00%');
@@ -517,7 +542,9 @@
         ['L2人员', '邹瑶、魏峰、曾庆涛按照季度结算，平时都按L1基础，不加牌级'],
         ['主管', '吴芬芬、毛徐仁基础佣金减半后再加牌级；CGS新签5%+牌级，平续1%+牌级'],
         ['股东', '陈继新、李颖不用计算'],
-        ['消耗', '按流程文件「平续：2%+牌级」；主管按基础减半为1%+牌级；L2不加牌级']
+        ['消耗', '按流程文件「平续：2%+牌级」；主管按基础减半为1%+牌级；L2不加牌级'],
+        ['黑名单退款', '会广满到账中付款类型为黑名单退款时，不按到账金额_拆分合计计算，直接用到账金额_退款扣除实际使用 × 本期佣金率'],
+        ['南昌海猪佣金信分组', '胡炳南、毛徐仁、谢雄、邹瑶放入南昌-破峰；安香香、程功吉、孙灵芝、魏峰、左倩放入南昌-稳赢天下；其余人员放压缩包根目录']
       ];
       XLSX.utils.book_append_sheet(outWb, makeSheet(ruleRows), '计算规则说明');
 

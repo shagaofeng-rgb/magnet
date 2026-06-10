@@ -8,3 +8,4 @@ npm-debug.log*
 tsconfig.tsbuildinfo
 openclaw-skills-preview.html
 openclaw-skills-preview.png
+.vercel

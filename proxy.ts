@@ -8,6 +8,8 @@ export function proxy(request: NextRequest) {
 
   if (
     pathname.startsWith("/commission") ||
+    pathname === "/request-quote" ||
+    /^\/[a-z]{2}\/request-quote$/.test(pathname) ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
     pathname.startsWith("/images") ||

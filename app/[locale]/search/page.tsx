@@ -1,0 +1,1 @@
+export const metadata={robots:{index:false,follow:true}};export default async function Page({searchParams}:{searchParams:Promise<{q?:string}>}){const{q=""}=await searchParams;return <section className="section"><div className="shell"><h1>Search</h1><p>Search query: {q.slice(0,80)}</p><p>Search and filtered states are not indexable.</p></div></section>}

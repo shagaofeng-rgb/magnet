@@ -1,0 +1,8 @@
+.next/
+node_modules/
+.pnpm-store/
+.env*
+!.env.example
+data/migrations/*.private.json
+reports/private/
+*.tsbuildinfo

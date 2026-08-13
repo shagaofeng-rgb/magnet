@@ -1,0 +1,1 @@
+import {PageHero} from "./PageHero";export function StaticPage({eyebrow,title,children}:{eyebrow:string;title:string;children:React.ReactNode}){return <><PageHero eyebrow={eyebrow} title={title} intro="Practical support for industrial magnetic-separation projects."/><section className="section section-white"><div className="shell prose">{children}</div></section></>}

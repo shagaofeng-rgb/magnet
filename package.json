@@ -2,7 +2,7 @@
   "name": "bzmagnet",
   "version": "1.0.0",
   "private": true,
-  "packageManager": "pnpm@11.19.0",
+  "packageManager": "pnpm@10.32.1",
   "scripts": {
     "dev": "next dev",
     "build": "pnpm guard:public && next build --webpack",

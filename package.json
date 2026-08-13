@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
     "guard:public": "node scripts/public-boundary-guard.mjs",
+    "guard:build": "node scripts/build-output-scan.mjs",
     "report:similarity": "node scripts/content-similarity-report.mjs"
   },
   "dependencies": {

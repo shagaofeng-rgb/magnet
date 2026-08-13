@@ -1,7 +1,9 @@
 {
-  "generatedAt": "2026-08-13T03:03:40.545Z",
-  "status": "private-reference-not-configured",
+  "generatedAt": "2026-08-13T10:49:29.648Z",
   "threshold": 0.32,
-  "notes": "Product facts may match. Public prose above the threshold requires editorial review.",
-  "files": []
+  "sourceComparison": "not-configured",
+  "maximumSourceOverlap": 0,
+  "maximumInternalOverlap": 0.7790697674418605,
+  "blocked": false,
+  "publicProducts": 88
 }

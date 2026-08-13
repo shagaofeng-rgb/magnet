@@ -5,4 +5,5 @@ node_modules/
 !.env.example
 data/migrations/*.private.json
 reports/private/
+data/private-migration/
 *.tsbuildinfo

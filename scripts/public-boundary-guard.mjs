@@ -1,2 +1,14 @@
-import fs from "node:fs";import path from "node:path";
-const root=process.cwd();const deny=[/cowinmagnet/gi,/cowin-logo/gi,/qr-whatsapp/gi,/home-hero-cowin/gi,/contact-support-cowin/gi,/about-factory-team/gi,/TODO_TECHNICAL_VALUE/gi,/PLACEHOLDER_HEADING/gi];const publicRoots=["app","components","lib","public","content","data"].filter(x=>fs.existsSync(path.join(root,x)));const allowFiles=new Set([path.normalize("scripts/public-boundary-guard.mjs"),path.normalize("scripts/content-similarity-report.mjs")]);const allowedExt=/\.(?:ts|tsx|js|jsx|mjs|json|md|css|html|xml|svg|txt)$/i;const failures=[];function walk(dir){for(const ent of fs.readdirSync(dir,{withFileTypes:true})){const full=path.join(dir,ent.name);const rel=path.relative(root,full);if(ent.isDirectory()){if(["migrations","node_modules",".next"].includes(ent.name))continue;walk(full)}else if(allowedExt.test(ent.name)&&!allowFiles.has(path.normalize(rel))){const text=fs.readFileSync(full,"utf8");for(const rule of deny){rule.lastIndex=0;if(rule.test(text))failures.push(`${rel}: ${rule}`)}}}}for(const dir of publicRoots)walk(path.join(root,dir));const content=await import(path.join(root,"lib/content.ts")).catch(()=>null);if(content){for(const p of content.products){for(const locale of content.copy?Object.keys(content.copy):["en","es","pt","ar","ru"]){if(!p.locales[locale]?.title||!p.locales[locale]?.slug)failures.push(`missing locale ${locale} for ${p.id}`)}}}if(failures.length){console.error("Public boundary guard failed\n"+failures.join("\n"));process.exit(1)}console.log("Public boundary guard passed: no denied brand references or placeholders.");
+import fs from "node:fs";
+import path from "node:path";
+const root=process.cwd();
+const deny=[/cowinmagnet/gi,/cowin-logo/gi,/qr-whatsapp/gi,/home-hero-cowin/gi,/contact-support-cowin/gi,/about-factory-team/gi,/TODO_TECHNICAL_VALUE/gi,/PLACEHOLDER_HEADING/gi];
+const publicRoots=["app","components","lib","public","content","data"].filter((item)=>fs.existsSync(path.join(root,item)));
+const allowFiles=new Set([path.normalize("scripts/public-boundary-guard.mjs"),path.normalize("scripts/content-similarity-report.mjs")]);
+const allowedExt=/\.(?:ts|tsx|js|jsx|mjs|json|md|css|html|xml|svg|txt)$/i;
+const failures=[];
+function walk(dir){for(const entry of fs.readdirSync(dir,{withFileTypes:true})){const full=path.join(dir,entry.name),rel=path.relative(root,full);if(entry.isDirectory()){if(["migrations","private-migration","node_modules",".next"].includes(entry.name))continue;walk(full)}else if(allowedExt.test(entry.name)&&!allowFiles.has(path.normalize(rel))){const text=fs.readFileSync(full,"utf8");for(const rule of deny){rule.lastIndex=0;if(rule.test(text))failures.push(`${rel}: ${rule}`)}}}}
+for(const dir of publicRoots)walk(path.join(root,dir));
+const catalog=JSON.parse(fs.readFileSync(path.join(root,"data/products.generated.json"),"utf8"));
+for(const product of catalog.products)for(const locale of ["en","es","pt","ar","ru"])if(!product.locale[locale]?.title||!product.locale[locale]?.slug)failures.push(`missing locale ${locale} for ${product.id}`);
+if(failures.length){console.error("Public boundary guard failed\n"+failures.join("\n"));process.exit(1)}
+console.log("Public boundary guard passed: no denied brand references or placeholders.");

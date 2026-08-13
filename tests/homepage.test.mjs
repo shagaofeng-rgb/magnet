@@ -1,0 +1,5 @@
+import test from "node:test";import assert from "node:assert/strict";import fs from "node:fs";
+const page=fs.readFileSync("app/[locale]/page.tsx","utf8");
+test("homepage has the required sections in order",()=>{const labels=["home-hero","benefit-grid","category-grid","industry-grid","quote-checklist","product-grid","insights-empty","final-cta"];let cursor=-1;for(const label of labels){const next=page.indexOf(label);assert.ok(next>cursor,`${label} must follow the previous section`);cursor=next}});
+test("homepage uses one h1 and only hero is priority",()=>{assert.equal((page.match(/<h1/g)||[]).length,1);assert.equal((page.match(/\bpriority\b/g)||[]).length,1)});
+test("generated media records are approved and owned",()=>{const assets=JSON.parse(fs.readFileSync("data/media/generated-assets.json","utf8"));assert.equal(assets.length,5);for(const asset of assets){assert.equal(asset.aiGenerated,true);assert.equal(asset.owner,"BZMAGNET");assert.equal(asset.usageStatus,"approved");assert.ok(asset.prompt&&asset.alt);assert.ok(fs.existsSync(`public${asset.path}`))}});

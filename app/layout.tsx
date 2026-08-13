@@ -1,3 +1,3 @@
-import "./globals.css";import "./hero.css";import "./navigation.css";import type { Metadata } from "next";
+import "./globals.css";import "./hero.css";import "./navigation.css";import "./homepage.css";import "./brand-overrides.css";import type { Metadata } from "next";
 export const metadata:Metadata={metadataBase:new URL(process.env.NEXT_PUBLIC_SITE_ORIGIN||"https://bzmagnet.com"),title:{default:"BZMAGNET | Magnetic Separation Equipment",template:"%s | BZMAGNET"},description:"Practical magnetic separation equipment selection for industrial buyers.",applicationName:"BZMAGNET"};
 export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}</body></html>}

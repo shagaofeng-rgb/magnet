@@ -14,12 +14,9 @@
     "report:similarity": "node scripts/content-similarity-report.mjs"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.7.1",
     "next": "16.2.10",
     "react": "19.2.6",
-    "react-dom": "19.2.6",
-    "react-hook-form": "^7.85.0",
-    "zod": "^4.4.3"
+    "react-dom": "19.2.6"
   },
   "devDependencies": {
     "@types/node": "22.10.2",

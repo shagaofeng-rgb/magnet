@@ -17,7 +17,7 @@ const benefitText=["Review equipment families suited to the stated material and 
 const checklist=["Material type","Conveyor or process position","Belt width and speed","Throughput or capacity target","Iron contamination details","Installation space and power supply"];
 const categoryDescriptions=["For ferrous metal removal and conveyor protection.","For processing, recovery and material-purity applications.","For ferrous and non-ferrous sorting processes.","For dry materials, powders and process streams."];
 const categoryImages=["home-hero-v2.png","industry-mining.png","industry-recycling.png","industry-cement.png"];
-const approvedProducts=products.filter(p=>p.locales.en.title&&p.locales.en.summary).slice(0,8);
+const approvedProducts=products.filter(p=>p.locales.en.title&&p.locales.en.summary&&p.approvedImage?.ownershipStatus==="approved").slice(0,8);
 
 export default async function Home({params}:{params:Promise<{locale:string}>}){
   const {locale}=await params;if(!isLocale(locale))notFound();const c=homeCopy[locale];

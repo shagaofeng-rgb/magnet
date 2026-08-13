@@ -1,6 +1,6 @@
 import { Locale } from "./i18n";
 export type Localized={title:string;summary:string;slug:string};
-export type Product={id:string;family:string;model?:string;locales:Record<Locale,Localized>;applications:string[];principle:string;selection:string[];parameters:{label:string;value:string;status:"approved"}[]};
+export type Product={id:string;family:string;model?:string;approvedImage?:{src:string;alt:Record<Locale,string>;ownershipStatus:"approved"};locales:Record<Locale,Localized>;applications:string[];principle:string;selection:string[];parameters:{label:string;value:string;status:"approved"}[]};
 export const copy:Record<Locale,{nav:string[];tag:string;hero:string;intro:string;quote:string;details:string;explore:string}>={
  en:{nav:["Equipment","Industries","Solutions","Resources","About","Contact"],tag:"Practical magnetic separation",hero:"Specify the right separator without overspending",intro:"Clear equipment choices for bulk handling, minerals, recycling and process lines—based on your material and installation conditions.",quote:"Request a Quote",details:"Send Process Details",explore:"Explore equipment"},
  es:{nav:["Equipos","Industrias","Soluciones","Recursos","Nosotros","Contacto"],tag:"Separación magnética práctica",hero:"Defina el separador adecuado sin gastar de más",intro:"Opciones claras para materiales a granel, minerales, reciclaje y procesos, según el material y la instalación.",quote:"Solicitar cotización",details:"Enviar datos del proceso",explore:"Ver equipos"},

@@ -1,0 +1,3 @@
+url,type,title,h1_count,h2_count,faq_count,metadata,schema,images,source_count,duplicate_score,broken_links,detected_defects,classification
+/en/news,news,BZMAGNET News,1,1,0,basic,none,0,0,0,0,"empty state; no taxonomy or detail pages",template_fix
+/en/blog,blog,Magnetic Separation Blog,1,2,0,basic,none,0,0,0,0,"static cards; no structured article records",rewrite_required

@@ -1,0 +1,1 @@
+{"crons":[{"path":"/api/cron/editorial-review","schedule":"0 */12 * * *"},{"path":"/api/cron/editorial-publish","schedule":"0 0 */2 * *"}]}

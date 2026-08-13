@@ -1,0 +1,4 @@
+url,type,title,h1_count,h2_count,faq_count,metadata,schema,images,source_count,duplicate_score,broken_links,detected_defects,classification
+/en/news,news,Updates and Industry Insights,1,0,0,locale-aware,none,0,0,0,0,none,safe_as_is
+/en/blog,blog,Practical Guides for Magnetic Separation Equipment,1,1,0,locale-aware,none,1,0,0,0,none,safe_as_is
+/en/blog/prepare-process-details-magnetic-separator-enquiry,blog,How to Prepare Process Details for a Magnetic Separator Enquiry,1,5,3,complete,BlogPosting+FAQPage,1,0,0,0,none,safe_as_is

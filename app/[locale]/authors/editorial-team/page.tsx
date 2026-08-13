@@ -1,0 +1,1 @@
+import {StaticPage} from "@/components/StaticPage";export default function Author(){return <StaticPage eyebrow="Editorial" title="BZMAGNET Editorial Team"><p>BZMAGNET publishes product-sourcing guidance and verified business updates. Content is reviewed against approved product records, stated source requirements and the organization&apos;s accuracy policy.</p></StaticPage>}

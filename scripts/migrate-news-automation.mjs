@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import postgres from "postgres";
 
-const url = process.env.NEWS_DATABASE_URL || process.env.POSTGRES_URL || process.env.DATABASE_URL;
+const cleanUrl = (value) => value?.trim().replace(/^(['"])(.*)\1$/, "$2") || undefined;
+const url = [process.env.NEWS_DATABASE_URL, process.env.POSTGRES_URL, process.env.DATABASE_URL].map(cleanUrl).find(Boolean);
 if (!url) throw new Error("Set NEWS_DATABASE_URL, POSTGRES_URL or DATABASE_URL before applying the News migration.");
 const sql = postgres(url, { prepare: false, max: 1 });
 try {

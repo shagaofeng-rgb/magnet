@@ -3,58 +3,111 @@ import "server-only";
 import postgres from "postgres";
 
 const cleanUrl = (value: string | undefined) => value?.trim().replace(/^(['"])(.*)\1$/, "$2") || undefined;
-const databaseUrl = [process.env.ADMIN_DATABASE_URL, process.env.NEWS_DATABASE_URL, process.env.POSTGRES_URL, process.env.DATABASE_URL].map(cleanUrl).find(Boolean);
+const databaseUrl = [process.env.ADMIN_DATABASE_URL, process.env.NEWS_DATABASE_URL, process.env.POSTGRES_URL, process.env.DATABASE_URL]
+  .map(cleanUrl)
+  .find(Boolean);
 const sql = databaseUrl ? postgres(databaseUrl, { prepare: false, max: 4, idle_timeout: 10, connect_timeout: 10 }) : null;
 
-export type AdminMetric = { label: string; value: string; source: string; detail: string; href: string };
-export type AdminQueueItem = { status: string; item: string; evidence: string; next: string; severity?: string };
-export type AdminModuleData = { metrics: AdminMetric[]; queue: AdminQueueItem[]; connected: boolean; lastSynced: string | null };
+export type AdminMetric = { label: string; value: string; href: string };
+export type AdminTrendPoint = { label: string; value: number };
+export type AdminTable = { title: string; columns: string[]; rows: string[][]; emptyText: string };
+export type AdminModuleData = {
+  connected: boolean;
+  lastSynced: string | null;
+  metrics: AdminMetric[];
+  trend: AdminTrendPoint[];
+  table: AdminTable;
+};
 
 const pageHref = (area: string) => `/admin/bzmagnet/${area}`;
 const count = async (query: () => Promise<Array<{ count: string }>>) => Number((await query())[0]?.count ?? 0);
+const dateTime = (value: string | Date | null | undefined) => value ? new Date(value).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false }) : "—";
+const dateOnly = (value: string | Date | null | undefined) => value ? new Date(value).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" }) : "—";
 
 export function isAdminStoreConfigured() { return Boolean(sql); }
 
 export async function getAdminModuleData(siteId: string, area: string): Promise<AdminModuleData> {
-  if (!sql) return { connected: false, lastSynced: null, metrics: [{ label: "数据连接", value: "未连接", source: "站点配置", detail: "数据库未配置，未展示演示指标。", href: pageHref("settings") }], queue: [{ status: "未连接", item: "运营数据", evidence: "等待站点级数据库连接", next: "前往系统设置配置" }] };
+  const unavailable: AdminModuleData = {
+    connected: false,
+    lastSynced: null,
+    metrics: [{ label: "数据连接", value: "未连接", href: pageHref("settings") }],
+    trend: [],
+    table: { title: "当前数据", columns: ["状态"], rows: [], emptyText: "数据库尚未连接，暂无可展示的真实数据。" },
+  };
+  if (!sql) return unavailable;
 
-  const [products, content, leads, candidates, publishedNews, audits, sessions, pageRows, seoRows, linkRows, jobs] = await Promise.all([
+  const [products, content, leads, publishedNews, sessions, pageViews, seoRows, linkIssues, pendingJobs, lastSync] = await Promise.all([
     count(() => sql<{ count: string }[]>`select count(*)::text as count from catalog_records where site_id = ${siteId} and status = 'published'`),
     count(() => sql<{ count: string }[]>`select count(*)::text as count from content_records where site_id = ${siteId} and status = 'published'`),
     count(() => sql<{ count: string }[]>`select count(*)::text as count from form_leads where site_id = ${siteId}`),
-    count(() => sql<{ count: string }[]>`select count(*)::text as count from news_candidates where site_id = ${siteId} and status in ('needs_review','failed')`),
     count(() => sql<{ count: string }[]>`select count(*)::text as count from news_articles where site_id = ${siteId} and status = 'published'`),
-    count(() => sql<{ count: string }[]>`select count(*)::text as count from audit_logs where site_id = ${siteId}`),
-    count(() => sql<{ count: string }[]>`select count(*)::text as count from visitor_sessions where site_id = ${siteId}`),
-    count(() => sql<{ count: string }[]>`select count(*)::text as count from page_metrics where site_id = ${siteId}`),
+    count(() => sql<{ count: string }[]>`select count(distinct anonymous_session_id)::text as count from visitor_sessions where site_id = ${siteId}`),
+    count(() => sql<{ count: string }[]>`select coalesce(sum(page_views), 0)::text as count from page_metrics where site_id = ${siteId}`),
     count(() => sql<{ count: string }[]>`select count(*)::text as count from seo_metrics where site_id = ${siteId}`),
-    count(() => sql<{ count: string }[]>`select count(*)::text as count from link_audits where site_id = ${siteId} and status in ('open','recheck')`),
-    count(() => sql<{ count: string }[]>`select count(*)::text as count from admin_jobs where site_id = ${siteId} and status in ('queued','running','failed')`),
+    count(() => sql<{ count: string }[]>`select count(*)::text as count from link_audits where site_id = ${siteId} and status in ('open', 'recheck')`),
+    count(() => sql<{ count: string }[]>`select count(*)::text as count from admin_jobs where site_id = ${siteId} and status in ('queued', 'running', 'failed')`),
+    sql<{ updated_at: string | null }[]>`select updated_at from site_settings where site_id = ${siteId} and setting_key = 'search_console_sync' limit 1`,
   ]);
-  const lastRun = await sql<{ finished_at: string | null }[]>`select finished_at from news_runs where site_id = ${siteId} order by finished_at desc nulls last limit 1`;
-  const lastSynced = lastRun[0]?.finished_at ?? null;
-  const overview: AdminMetric[] = [
-    { label: "产品记录", value: String(products), source: "目录数据库", detail: "已发布产品记录", href: pageHref("products") },
-    { label: "已发布内容", value: String(content + publishedNews), source: "内容数据库", detail: "News 与手工内容", href: pageHref("news") },
-    { label: "询盘提交", value: String(leads), source: "内部表单", detail: "加密存储的线索", href: pageHref("forms") },
-    { label: "待处理异常", value: String(candidates + linkRows + jobs), source: "任务与审计", detail: "需人工查看", href: pageHref("news-operations") },
+
+  const overview = [
+    { label: "产品", value: String(products), href: pageHref("products") },
+    { label: "已发布内容", value: String(content + publishedNews), href: pageHref("news") },
+    { label: "询盘", value: String(leads), href: pageHref("forms") },
+    { label: "待处理项目", value: String(linkIssues + pendingJobs), href: pageHref("links") },
   ];
-  const byArea: Record<string, AdminMetric[]> = {
+  const metricSets: Record<string, AdminMetric[]> = {
     overview,
-    traffic: [{ label: "匿名会话", value: String(sessions), source: "内部事件库", detail: "未保存完整 IP", href: pageHref("visitors") }, { label: "页面指标", value: String(pageRows), source: "内部事件库", detail: "尚无数据时显示为 0", href: pageHref("page-performance") }],
-    seo: [{ label: "搜索指标", value: String(seoRows), source: "站点数据库", detail: "未接入 Search Console", href: pageHref("settings") }, { label: "链接问题", value: String(linkRows), source: "链接审计", detail: "待复检记录", href: pageHref("links") }],
-    products: [{ label: "已发布产品", value: String(products), source: "目录数据库", detail: "仅显示已审批记录", href: pageHref("products") }, { label: "审计事件", value: String(audits), source: "审计日志", detail: "发布、导入与回滚均留痕", href: pageHref("settings") }],
-    news: [{ label: "已发布 News", value: String(publishedNews), source: "News 数据库", detail: "仅显示真实已发布内容", href: pageHref("news") }, { label: "待审核候选", value: String(candidates), source: "News 队列", detail: "无来源时不会自动生成", href: pageHref("news-operations") }],
-    "news-operations": [{ label: "运行队列", value: String(jobs), source: "后台任务", detail: "内部模式不会调用外部服务", href: pageHref("news-operations") }, { label: "待人工审核", value: String(candidates), source: "News 队列", detail: "失败安全保留原因", href: pageHref("news") }],
-    forms: [{ label: "询盘", value: String(leads), source: "Neon 加密存储", detail: "客户字段仅限授权角色读取", href: pageHref("forms") }, { label: "匿名会话", value: String(sessions), source: "隐私优先事件", detail: "同意后才关联线索", href: pageHref("visitors") }],
-    links: [{ label: "待修复链接", value: String(linkRows), source: "链接审计", detail: "无审计数据时为 0", href: pageHref("links") }, { label: "页面记录", value: String(pageRows), source: "页面指标", detail: "用于孤儿页与路径检查", href: pageHref("page-performance") }],
-    visitors: [{ label: "匿名会话", value: String(sessions), source: "内部事件库", detail: "粗粒度、可清理", href: pageHref("visitors") }, { label: "询盘", value: String(leads), source: "表单库", detail: "仅同意后关联", href: pageHref("forms") }],
-    "page-performance": [{ label: "页面指标", value: String(pageRows), source: "内部事件库", detail: "CWV 未连接时不虚构", href: pageHref("page-performance") }, { label: "SEO 指标", value: String(seoRows), source: "站点数据库", detail: "等待人工导入或连接", href: pageHref("seo") }],
-    paths: [{ label: "匿名会话", value: String(sessions), source: "内部事件库", detail: "达到最小样本后显示路径", href: pageHref("paths") }, { label: "页面指标", value: String(pageRows), source: "内部事件库", detail: "不呈现可识别个人行为", href: pageHref("page-performance") }],
-    settings: [{ label: "审计事件", value: String(audits), source: "审计日志", detail: "站点隔离与权限操作", href: pageHref("settings") }, { label: "未完成任务", value: String(jobs), source: "任务队列", detail: "配置不完整不会伪装为成功", href: pageHref("settings") }],
+    traffic: [{ label: "匿名会话", value: String(sessions), href: pageHref("visitors") }, { label: "页面浏览", value: String(pageViews), href: pageHref("page-performance") }],
+    seo: [{ label: "搜索记录", value: String(seoRows), href: pageHref("seo") }, { label: "链接问题", value: String(linkIssues), href: pageHref("links") }],
+    products: [{ label: "已发布产品", value: String(products), href: pageHref("products") }, { label: "总目录记录", value: String(products), href: pageHref("products") }],
+    news: [{ label: "已发布内容", value: String(content), href: pageHref("news") }, { label: "已发布 News", value: String(publishedNews), href: pageHref("news") }],
+    "news-operations": [{ label: "待运行任务", value: String(pendingJobs), href: pageHref("news-operations") }, { label: "已发布 News", value: String(publishedNews), href: pageHref("news") }],
+    forms: [{ label: "全部询盘", value: String(leads), href: pageHref("forms") }, { label: "匿名会话", value: String(sessions), href: pageHref("visitors") }],
+    links: [{ label: "待复查链接", value: String(linkIssues), href: pageHref("links") }, { label: "页面浏览", value: String(pageViews), href: pageHref("page-performance") }],
+    visitors: [{ label: "匿名会话", value: String(sessions), href: pageHref("visitors") }, { label: "页面浏览", value: String(pageViews), href: pageHref("page-performance") }],
+    "page-performance": [{ label: "页面浏览", value: String(pageViews), href: pageHref("page-performance") }, { label: "搜索记录", value: String(seoRows), href: pageHref("seo") }],
+    paths: [{ label: "匿名会话", value: String(sessions), href: pageHref("paths") }, { label: "询盘", value: String(leads), href: pageHref("forms") }],
+    settings: [{ label: "搜索同步记录", value: String(seoRows), href: pageHref("seo") }, { label: "待处理任务", value: String(pendingJobs), href: pageHref("news-operations") }],
   };
-  const queue = await sql<{ status: string; target_type: string; action: string; created_at: string }[]>`select 'recorded' as status, target_type, action, created_at from audit_logs where site_id = ${siteId} order by created_at desc limit 8`;
-  return { connected: true, lastSynced, metrics: byArea[area] ?? overview, queue: queue.length ? queue.map((item) => ({ status: item.status, item: `${item.target_type}: ${item.action}`, evidence: `审计时间 ${new Date(item.created_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}`, next: "查看并按权限处理" })) : [{ status: "暂无数据", item: "尚无已记录的运营事件", evidence: "数据库已连接，未生成演示数据", next: "通过后台受限操作开始记录" }] };
+
+  const trendRows = await sql<{ label: string; value: number }[]>`
+    select to_char(metric_date, 'MM-DD') as label, coalesce(sum(page_views), 0)::int as value
+    from page_metrics
+    where site_id = ${siteId} and metric_date >= current_date - interval '13 days'
+    group by metric_date
+    order by metric_date asc`;
+
+  let table: AdminTable;
+  if (area === "products") {
+    const rows = await sql<{ title: string; slug: string | null; status: string; updated_at: string }[]>`select title, slug, status, updated_at from catalog_records where site_id = ${siteId} order by updated_at desc limit 30`;
+    table = { title: "产品目录", columns: ["名称", "链接标识", "状态", "更新时间"], rows: rows.map((row) => [row.title, row.slug || "—", row.status, dateTime(row.updated_at)]), emptyText: "尚未录入产品记录。" };
+  } else if (area === "news" || area === "news-operations") {
+    const rows = await sql<{ title: string; content_type: string; status: string; updated_at: string }[]>`select title, content_type, status, updated_at from content_records where site_id = ${siteId} order by updated_at desc limit 30`;
+    table = { title: "内容记录", columns: ["标题", "类型", "状态", "更新时间"], rows: rows.map((row) => [row.title, row.content_type, row.status, dateTime(row.updated_at)]), emptyText: "尚无已保存的内容记录。" };
+  } else if (area === "forms") {
+    const rows = await sql<{ id: string; lead_status: string; created_at: string; attribution: { locale?: string; sourceUrl?: string } | null }[]>`select id::text, lead_status, created_at, attribution from form_leads where site_id = ${siteId} order by created_at desc limit 30`;
+    table = { title: "询盘收件箱", columns: ["编号", "状态", "语言", "提交时间"], rows: rows.map((row) => [row.id.slice(0, 8), row.lead_status, row.attribution?.locale || "—", dateTime(row.created_at)]), emptyText: "尚未收到询盘。" };
+  } else if (area === "seo") {
+    const rows = await sql<{ url: string; clicks: number | null; impressions: number | null; average_position: number | null; metric_date: string }[]>`select url, clicks, impressions, average_position, metric_date from seo_metrics where site_id = ${siteId} order by metric_date desc, impressions desc nulls last limit 30`;
+    table = { title: "搜索表现", columns: ["页面", "点击", "展示", "平均排名", "日期"], rows: rows.map((row) => [row.url, String(row.clicks ?? 0), String(row.impressions ?? 0), row.average_position == null ? "—" : Number(row.average_position).toFixed(1), dateOnly(row.metric_date)]), emptyText: "尚未同步到 Search Console 数据。" };
+  } else if (area === "links") {
+    const rows = await sql<{ source_url: string; target_url: string | null; http_status: number | null; severity: string; status: string }[]>`select source_url, target_url, http_status, severity, status from link_audits where site_id = ${siteId} order by last_checked_at desc limit 30`;
+    table = { title: "链接审计", columns: ["来源页面", "目标", "HTTP", "优先级", "状态"], rows: rows.map((row) => [row.source_url, row.target_url || "—", String(row.http_status ?? "—"), row.severity, row.status]), emptyText: "尚未运行链接审计。" };
+  } else if (area === "visitors" || area === "traffic") {
+    const rows = await sql<{ landing_path: string | null; channel: string | null; device_class: string | null; locale: string | null; started_at: string }[]>`select landing_path, channel, device_class, locale, started_at from visitor_sessions where site_id = ${siteId} order by started_at desc limit 30`;
+    table = { title: "匿名访问会话", columns: ["入口页面", "来源", "设备", "语言", "开始时间"], rows: rows.map((row) => [row.landing_path || "—", row.channel || "direct", row.device_class || "—", row.locale || "—", dateTime(row.started_at)]), emptyText: "尚无访问记录；上线后将自动开始记录匿名访问数据。" };
+  } else if (area === "page-performance" || area === "paths") {
+    const rows = await sql<{ path: string; page_views: number | null; conversions: number | null; metric_date: string }[]>`select path, sum(page_views)::int as page_views, sum(conversions)::int as conversions, max(metric_date)::text as metric_date from page_metrics where site_id = ${siteId} group by path order by sum(page_views) desc nulls last limit 30`;
+    table = { title: area === "paths" ? "页面路径" : "页面表现", columns: ["页面", "浏览", "转化", "最近记录"], rows: rows.map((row) => [row.path, String(row.page_views ?? 0), String(row.conversions ?? 0), dateOnly(row.metric_date)]), emptyText: "尚无页面访问数据。" };
+  } else if (area === "settings") {
+    const rows = await sql<{ setting_key: string; updated_at: string }[]>`select setting_key, updated_at from site_settings where site_id = ${siteId} order by updated_at desc limit 30`;
+    table = { title: "已保存的站点设置", columns: ["设置项", "更新时间"], rows: rows.map((row) => [row.setting_key, dateTime(row.updated_at)]), emptyText: "当前没有可展示的站点设置记录。" };
+  } else {
+    const rows = await sql<{ status: string; target_type: string; action: string; created_at: string }[]>`select 'recorded' as status, target_type, action, created_at from audit_logs where site_id = ${siteId} order by created_at desc limit 30`;
+    table = { title: "最近操作", columns: ["状态", "对象", "操作", "时间"], rows: rows.map((row) => [row.status, row.target_type, row.action, dateTime(row.created_at)]), emptyText: "尚无后台操作记录。" };
+  }
+
+  return { connected: true, lastSynced: lastSync[0]?.updated_at ?? null, metrics: metricSets[area] ?? overview, trend: trendRows, table };
 }
 
 export async function writeAdminAudit(siteId: string, actorId: string, action: string, targetType: string, targetId: string | null, reason: string) {

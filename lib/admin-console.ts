@@ -9,18 +9,18 @@ export type AdminAction = "read" | "create" | "update" | "publish" | "delete" | 
 export type AdminSession = { userId: string; email: string; role: AdminRole; siteIds: string[]; expiresAt: number };
 
 export const adminModules = [
-  ["overview", "数据总览", ["总览仪表盘", "时间范围与比较", "数据同步状态", "核心指标卡", "内容库存状态", "流量趋势", "来源渠道", "高优先级异常", "快捷操作"]],
-  ["traffic", "流量分析", ["流量概览", "渠道与来源", "地域、设备与语言", "着陆页", "转化分析", "数据质量"]],
-  ["seo", "SEO 数据", ["搜索表现", "关键词与页面", "收录与抓取", "Sitemap 与 Robots", "Canonical / Hreflang", "Schema 验证", "SEO 问题队列"]],
-  ["products", "产品管理", ["产品列表", "产品分类/系列", "产品编辑器", "参数与选项", "图片与文件", "多语言内容", "SEO 与关联内容", "发布与版本", "批量导入/导出"]],
-  ["news", "新闻管理", ["内容列表", "内容编辑器", "分类与标签", "作者与审核", "来源与证据", "多语言与 SEO", "发布日历", "版本/回滚"]],
-  ["news-operations", "News 运营", ["运营仪表盘", "主题队列", "采集与来源审核", "自动生成任务", "质量/重复检测", "发布队列与失败任务", "产品关联规则", "运行日志/告警"]],
-  ["forms", "客户表单", ["询盘收件箱", "表单字段与路由", "线索状态/分配", "垃圾/重复识别", "转化报表", "导出与隐私请求"]],
-  ["links", "内外链审计", ["站内链接图谱", "失效链接", "外链与来源链接", "重定向链", "孤儿页", "锚文本与关联性", "修复队列"]],
-  ["visitors", "访客记录", ["匿名访问会话", "事件明细", "来源与着陆页", "询盘转化关联", "数据保留与脱敏", "隐私访问请求"]],
-  ["page-performance", "页面表现", ["页面 KPI", "SEO / 内容质量", "Core Web Vitals", "图片与资源性能", "页面异常", "优化建议队列"]],
-  ["paths", "访问路径", ["路径漏斗", "常见路径", "退出与回退点", "产品到询盘路径", "页面间跳转图谱"]],
-  ["settings", "系统设置", ["站点与品牌", "域名/语言/时区", "分析与搜索连接", "内容自动化配置", "SEO 与爬虫配置", "表单/邮件/CRM 配置", "媒体与存储配置", "用户、角色与权限", "审计日志与数据保留", "危险操作与备份"]],
+  ["overview", "数据总览", ["运营概览"]],
+  ["traffic", "流量分析", ["访问概览"]],
+  ["seo", "SEO 数据", ["搜索表现"]],
+  ["products", "产品管理", ["产品目录"]],
+  ["news", "新闻管理", ["内容库"]],
+  ["news-operations", "News 运营", ["发布任务"]],
+  ["forms", "客户表单", ["询盘收件箱"]],
+  ["links", "内外链审计", ["链接审计"]],
+  ["visitors", "访客记录", ["访客会话"]],
+  ["page-performance", "页面表现", ["页面表现"]],
+  ["paths", "访问路径", ["转化路径"]],
+  ["settings", "系统设置", ["站点设置"]],
 ] as const;
 
 export const sites = [{ id: "bzmagnet", name: "BZMAGNET", origin: process.env.NEXT_PUBLIC_SITE_ORIGIN || "https://bzmagnet.com", locales: ["en", "es", "pt", "ar", "ru"], timezone: "Asia/Shanghai" }] as const;

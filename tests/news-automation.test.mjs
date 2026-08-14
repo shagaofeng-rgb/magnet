@@ -13,7 +13,13 @@ test("only the durable News cron routes are scheduled", () => {
 
 test("News automation has a fail-closed durable store, lock and 48-hour gate", () => {
   const source = read("lib/news-automation.ts");
-  for (const token of ["NEWS_DATABASE_URL", "NEWS_SOURCE_FEEDS", "NEWS_GENERATOR_WEBHOOK_URL", "acquireNewsLock", "isAtLeast48Hours", "needs_review", "duplicate-or-similar-content", "approved-product-relation-required"]) assert.match(source, new RegExp(token));
+  for (const token of ["NEWS_DATABASE_URL", "NEWS_SOURCE_FEEDS", "NEWS_GENERATOR_WEBHOOK_URL", "newsAutomationMode", "Internal-only News mode", "acquireNewsLock", "isAtLeast48Hours", "needs_review", "duplicate-or-similar-content", "approved-product-relation-required"]) assert.match(source, new RegExp(token));
+});
+
+test("external News collection is opt-in and internal mode is the safe default", () => {
+  const workflow = read("lib/editorial-workflow.ts");
+  assert.match(workflow, /NEWS_AUTOMATION_MODE === "external_sources"/);
+  assert.match(workflow, /"internal_review"/);
 });
 
 test("Blog cannot be written by the automatic News publisher", () => {

@@ -21,7 +21,9 @@ Date: 2026-08-14
 
 ## Production configuration status
 
-At the final pre-deployment check, the BZMAGNET Vercel production project had no environment variables. The code is deployable but cannot persist or publish News until the following server-only values are configured:
+The BZMAGNET Neon database is connected and the News tables have been initialized. The live deployment runs in `internal_review` mode: it records health checks and supports editorial work in the database without calling external sources, generators, analytics, email, CRM or sitemap-submission providers.
+
+Automatic publication remains intentionally inactive in this mode. It can only be enabled later by explicitly changing `NEWS_AUTOMATION_MODE` to `external_sources` and configuring the following server-only values:
 
 1. `CRON_SECRET`
 2. `NEWS_DATABASE_URL` (then run `pnpm news:migrate` against that private database)

@@ -1,5 +1,16 @@
 import type { Article } from "./editorial";
 
+export type NewsAutomationMode = "internal_review" | "external_sources";
+
+/**
+ * BZMAGNET defaults to an internal editorial workflow. External collection and
+ * generation are opt-in so an unset integration can never trigger a network
+ * fetch or fabricate a News article.
+ */
+export function newsAutomationMode(): NewsAutomationMode {
+  return process.env.NEWS_AUTOMATION_MODE === "external_sources" ? "external_sources" : "internal_review";
+}
+
 /** One source of truth for News automation. Blog is deliberately absent. */
 export const siteEditorialConfig = {
   siteId: "bzmagnet",

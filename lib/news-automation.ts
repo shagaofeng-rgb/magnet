@@ -3,7 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { articlePath, editorialAssets, normalize, similarity, validateArticle, type Article } from "./editorial";
-import { isAtLeast48Hours, siteEditorialConfig, type NewsCandidate } from "./editorial-workflow";
+import { isAtLeast48Hours, newsAutomationMode, siteEditorialConfig, type NewsCandidate } from "./editorial-workflow";
 import { productPath, publicProducts } from "./product-model";
 import { acquireNewsLock, existingNewsForDeduplication, getLastSuccessfulPublishAt, isNewsStoreConfigured, listAutomationCandidates, nextScheduledArticle, recordNewsRun, releaseNewsLock, saveGeneratedArticle, setArticleState, upsertCandidate } from "./news-store";
 
@@ -127,6 +127,11 @@ export async function reviewNewsCandidates(): Promise<RunResult> {
   if (!(await acquireNewsLock("bzmagnet:news-review"))) return { success: true, action: "review", published: 0, reviewed: 0, needsReview: 0, message: "A review run is already active." };
   const startedAt = new Date().toISOString();
   try {
+    if (newsAutomationMode() !== "external_sources") {
+      const result = { success: true, action: "review", published: 0, reviewed: 0, needsReview: 0, message: "Internal-only News mode is active; no external sources were collected." };
+      await recordNewsRun({ id: crypto.randomUUID(), kind: "review", status: "skipped", startedAt, finishedAt: new Date().toISOString(), details: result });
+      return result;
+    }
     const feeds = configuredFeeds();
     if (!feeds.length) return { success: false, action: "review", published: 0, reviewed: 0, needsReview: 0, message: "NEWS_SOURCE_FEEDS is not configured; source collection skipped.", reasons: ["source-feeds-not-configured"] };
     let reviewed = 0, needsReview = 0;
@@ -172,6 +177,11 @@ export async function publishScheduledNews(): Promise<RunResult> {
   if (!(await acquireNewsLock("bzmagnet:news-publish"))) return { success: true, action: "publish", published: 0, reviewed: 0, needsReview: 0, message: "A publish run is already active." };
   const startedAt = new Date().toISOString();
   try {
+    if (newsAutomationMode() !== "external_sources") {
+      const result = { success: true, action: "publish", published: 0, reviewed: 0, needsReview: 0, message: "Internal-only News mode is active; scheduled publishing is disabled until externally verified sources and a reviewed generator are explicitly configured." };
+      await recordNewsRun({ id: crypto.randomUUID(), kind: "publish", status: "skipped", startedAt, finishedAt: new Date().toISOString(), details: result });
+      return result;
+    }
     await generateScheduledNews();
     const lastPublishedAt = await getLastSuccessfulPublishAt();
     if (!isAtLeast48Hours(lastPublishedAt)) return { success: true, action: "publish", published: 0, reviewed: 0, needsReview: 0, message: "48-hour News publication interval has not elapsed." };

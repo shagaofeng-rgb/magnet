@@ -19,7 +19,10 @@ export function proxy(request: NextRequest) {
   }
   const first = pathname.split("/")[1];
   if (!locales.includes(first as never) && !pathname.startsWith("/admin") && !pathname.startsWith("/api") && !pathname.includes(".")) return NextResponse.redirect(new URL(`/en${pathname}`, request.url), 308);
-  const response = NextResponse.next();
+  const requestHeaders = new Headers(request.headers);
+  if (locales.includes(first as never)) requestHeaders.set("x-bzmagnet-locale", first);
+  else requestHeaders.delete("x-bzmagnet-locale");
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("X-Content-Type-Options","nosniff");
   response.headers.set("Referrer-Policy","strict-origin-when-cross-origin");
   response.headers.set("Permissions-Policy","camera=(), microphone=(), geolocation=()");

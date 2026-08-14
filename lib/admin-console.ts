@@ -1,8 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { publicProducts } from "@/lib/product-model";
-import { articles } from "@/lib/editorial";
 
 export const ADMIN_COOKIE = "bzmagnet_admin_session";
 export const roles = ["super_admin", "site_admin", "editor", "content_reviewer", "seo_analyst", "sales", "viewer"] as const;
@@ -22,7 +20,7 @@ export const adminModules = [
   ["visitors", "访客记录", ["匿名访问会话", "事件明细", "来源与着陆页", "询盘转化关联", "数据保留与脱敏", "隐私访问请求"]],
   ["page-performance", "页面表现", ["页面 KPI", "SEO / 内容质量", "Core Web Vitals", "图片与资源性能", "页面异常", "优化建议队列"]],
   ["paths", "访问路径", ["路径漏斗", "常见路径", "退出与回退点", "产品到询盘路径", "页面间跳转图谱"]],
-  ["settings", "系统设置", ["站点与品牌", "域名/语言/时区", "分析与搜索连接", "内容自动化配置", "SEO 与爬虫配置", "表单/邮件/CRM 配置", "媒体与存储配置", "用户、角色与权限", "审计日志与数据保留", "危险操作与备份"]]
+  ["settings", "系统设置", ["站点与品牌", "域名/语言/时区", "分析与搜索连接", "内容自动化配置", "SEO 与爬虫配置", "表单/邮件/CRM 配置", "媒体与存储配置", "用户、角色与权限", "审计日志与数据保留", "危险操作与备份"]],
 ] as const;
 
 export const sites = [{ id: "bzmagnet", name: "BZMAGNET", origin: process.env.NEXT_PUBLIC_SITE_ORIGIN || "https://bzmagnet.com", locales: ["en", "es", "pt", "ar", "ru"], timezone: "Asia/Shanghai" }] as const;
@@ -33,4 +31,3 @@ export function encodeAdminSession(session: AdminSession) { const payload = Buff
 export function decodeAdminSession(token?: string): AdminSession | null { if (!token || !process.env.ADMIN_SESSION_SECRET) return null; const [payload, signature] = token.split("."); if (!payload || !signature) return null; const expected = sign(payload); if (signature.length !== expected.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null; try { const session = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as AdminSession; return session.expiresAt > Date.now() && roles.includes(session.role) ? session : null; } catch { return null; } }
 export async function getAdminSession() { return decodeAdminSession((await cookies()).get(ADMIN_COOKIE)?.value); }
 export async function requireAdmin(siteId: string, action: AdminAction = "read") { const session = await getAdminSession(); if (!session || !session.siteIds.includes(siteId) || !actionRoles[action].includes(session.role)) redirect("/admin/login"); return session; }
-export function adminSnapshot() { const publishedProducts = publicProducts.filter((product) => product.status === "published").length; const publishedArticles = articles.filter((article) => article.status === "published").length; return { publishedProducts, publishedArticles, localeGaps: publicProducts.filter((product) => Object.values(product.locale).some((locale) => !locale.reviewed)).length, source: "catalog" as const }; }

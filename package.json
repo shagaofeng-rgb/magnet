@@ -14,7 +14,9 @@
     "guard:build": "node scripts/build-output-scan.mjs",
     "report:similarity": "node scripts/content-similarity-report.mjs",
     "news:migrate": "node scripts/migrate-news-automation.mjs",
-    "news:bootstrap": "node scripts/bootstrap-news-store.mjs"
+    "news:bootstrap": "node scripts/bootstrap-news-store.mjs",
+    "admin:migrate": "node scripts/migrate-admin-operating-layer.mjs",
+    "admin:seed-catalog": "node scripts/seed-admin-catalog.mjs"
   },
   "dependencies": {
     "next": "16.2.10",

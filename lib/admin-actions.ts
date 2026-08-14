@@ -2,7 +2,10 @@
 import { createHash, pbkdf2Sync, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { ADMIN_COOKIE, encodeAdminSession } from "@/lib/admin-console";
+import { requireAdmin } from "@/lib/admin-console";
+import { writeAdminAudit, writeAdminJob } from "@/lib/admin-store";
 function matchesPassword(password: string, stored: string) {
   const [scheme, iterationText, salt, expected] = stored.split("$");
   if (scheme === "pbkdf2-sha256" && iterationText && salt && expected) {
@@ -17,3 +20,14 @@ function matchesPassword(password: string, stored: string) {
 }
 export async function login(formData: FormData) { const email = String(formData.get("email") || "").trim().toLowerCase(); const password = String(formData.get("password") || ""); const expectedEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase(); const expectedHash = process.env.ADMIN_PASSWORD_HASH; if (!process.env.ADMIN_SESSION_SECRET || !expectedEmail || !expectedHash || email !== expectedEmail || !matchesPassword(password, expectedHash)) redirect("/admin/login?error=1"); const token = encodeAdminSession({ userId: "bootstrap-admin", email, role: "super_admin", siteIds: ["bzmagnet"], expiresAt: Date.now() + 8 * 60 * 60 * 1000 }); (await cookies()).set(ADMIN_COOKIE, token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/admin", maxAge: 8 * 60 * 60 }); redirect("/admin/bzmagnet/overview"); }
 export async function logout() { (await cookies()).delete(ADMIN_COOKIE); redirect("/admin/login"); }
+
+export async function queueInternalAdminCheck(formData: FormData) {
+  const siteId = String(formData.get("siteId") || "");
+  const area = String(formData.get("area") || "overview");
+  if (siteId !== "bzmagnet" || !/^[a-z-]{2,40}$/.test(area)) throw new Error("invalid_admin_action");
+  const session = await requireAdmin(siteId, "settings");
+  const idempotencyKey = `internal-check:${area}:${new Date().toISOString().slice(0, 10)}`;
+  await writeAdminJob(siteId, "internal_admin_check", idempotencyKey, { area, requestedBy: session.userId, requestedAt: new Date().toISOString() });
+  await writeAdminAudit(siteId, session.userId, "queue", "internal_admin_check", area, "管理员手动记录内部检查；不调用第三方服务。");
+  revalidatePath(`/admin/${siteId}/${area}`);
+}

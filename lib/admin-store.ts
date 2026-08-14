@@ -168,6 +168,12 @@ export async function writeAdminJob(siteId: string, kind: string, idempotencyKey
   await sql`insert into admin_jobs (id, site_id, kind, idempotency_key, status, payload, result) values (${crypto.randomUUID()}, ${siteId}, ${kind}, ${idempotencyKey}, 'queued', ${sql.json(payload as never)}, '{}'::jsonb) on conflict (site_id, idempotency_key) do update set status = 'queued', payload = excluded.payload`;
 }
 
+export async function reserveInquiryRateLimit(siteId: string, idempotencyKey: string) {
+  if (!sql) throw new Error("admin_store_not_configured");
+  const rows = await sql<{ id: string }[]>`insert into admin_jobs (id, site_id, kind, idempotency_key, status, payload, result) values (${crypto.randomUUID()}, ${siteId}, 'inquiry_rate_limit', ${idempotencyKey}, 'succeeded', '{}'::jsonb, '{}'::jsonb) on conflict (site_id, idempotency_key) do nothing returning id`;
+  return rows.length === 1;
+}
+
 export async function completeAdminJob(siteId: string, idempotencyKey: string, status: "succeeded" | "failed", result: Record<string, unknown>) {
   if (!sql) throw new Error("admin_store_not_configured");
   await sql`update admin_jobs set status = ${status}, result = ${sql.json(result as never)} where site_id = ${siteId} and idempotency_key = ${idempotencyKey}`;

@@ -11,7 +11,7 @@ export function proxy(request: NextRequest) {
   const protectedSync = pathname === "/api/admin/search-console/sync";
   const country = request.headers.get("x-vercel-ip-country")?.toUpperCase();
   if (country && blockedCountries.has(country) && !protectedAdminAccess && !protectedSync) return blockedResponse();
-  if (pathname === "/") return NextResponse.redirect(new URL("/en/", request.url), 308);
+  if (pathname === "/") return NextResponse.redirect(new URL("/en", request.url), 308);
   if (pathname.startsWith("/ar/%D8%A7%D9%84%D9%85%D8%B9%D8%AF%D8%A7%D8%AA/") || pathname.startsWith("/ar/المعدات/")) {
     const rewritten = request.nextUrl.clone();
     rewritten.pathname = pathname.replace(/^\/ar\/(?:%D8%A7%D9%84%D9%85%D8%B9%D8%AF%D8%A7%D8%AA|المعدات)\//, "/ar/equipment/");

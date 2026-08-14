@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash, randomUUID } from "node:crypto";
-import { completeAdminJob, storeInternalLead, writeAdminJob } from "@/lib/admin-store";
+import { completeAdminJob, reserveInquiryRateLimit, storeInternalLead, writeAdminJob } from "@/lib/admin-store";
 import { sendInquiryNotification } from "@/lib/inquiry-email";
 
 type Attribution = { context?: string; product?: string; product_name?: string; locale?: string; source?: string; utm_source?: string; utm_medium?: string; utm_campaign?: string; utm_content?: string; utm_term?: string };
@@ -18,17 +18,20 @@ function valid(value: unknown): value is Inquiry {
   return text(input.name, 2, 80) && text(input.email, 3, 160) && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email as string) && text(input.company, 2, 120) && (!input.industry || text(input.industry, 0, 100)) && text(input.material, 10, 1500) && text(input.process, 10, 2500) && (input.consent === "on" || input.consent === true) && (!input.website || input.website === "") && (!input.attribution || validAttribution(input.attribution));
 }
 
-const recent = new Map<string, number>();
+function sameOrigin(request: NextRequest) {
+  const sentOrigin = request.headers.get("origin");
+  return !sentOrigin || sentOrigin === request.nextUrl.origin;
+}
 
 export async function POST(request: NextRequest) {
   const requestId = randomUUID();
   try {
+    if (!sameOrigin(request)) return NextResponse.json({ success: false, error: "origin_not_allowed", requestId }, { status: 403 });
     const input: unknown = await request.json();
     if (!valid(input)) return NextResponse.json({ success: false, error: "invalid_request", requestId }, { status: 400 });
     const key = createHash("sha256").update(`${request.headers.get("x-forwarded-for") || "local"}:${input.email}`).digest("hex");
-    const now = Date.now();
-    if ((recent.get(key) || 0) > now - 60_000) return NextResponse.json({ success: false, error: "rate_limited", requestId }, { status: 429 });
-    recent.set(key, now);
+    const minute = Math.floor(Date.now() / 60_000);
+    if (!(await reserveInquiryRateLimit("bzmagnet", `inquiry-rate:${key}:${minute}`))) return NextResponse.json({ success: false, error: "rate_limited", requestId }, { status: 429 });
 
     const leadId = await storeInternalLead(input as Record<string, unknown>, (input.attribution || {}) as Record<string, unknown>);
     const jobKey = `inquiry-email:${leadId}`;

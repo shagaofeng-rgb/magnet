@@ -1,2 +1,3 @@
 import { Locale,locales,origin } from "./i18n";
-export function alternates(locale:Locale,path=""){const languages=Object.fromEntries(locales.map(l=>[l,`${origin}/${l}/${path}`]));return {canonical:`${origin}/${locale}/${path}`,languages:{...languages,"x-default":`${origin}/en/${path}`}}}
+const localizedUrl=(locale:Locale,path="")=>`${origin}/${locale}${path?`/${path.replace(/^\//,"")}`:""}`;
+export function alternates(locale:Locale,path=""){const languages=Object.fromEntries(locales.map(l=>[l,localizedUrl(l,path)]));return {canonical:localizedUrl(locale,path),languages:{...languages,"x-default":localizedUrl("en",path)}}}

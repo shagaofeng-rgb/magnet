@@ -1,0 +1,21 @@
+inventory_id,route_or_pattern,classification,locale_coverage,source_evidence,status,notes
+INV-001,/,redirect,en,proxy.ts,verified,Source redirects root to /en/; current China-region request is blocked before public rendering.
+INV-002,/[locale],indexable home,en|es|pt|ar|ru,app/[locale]/page.tsx,partially_verified,Locale template exists; public rendering outside blocked region not verified.
+INV-003,/[locale]/products,indexable category hub,en|es|pt|ar|ru,app/[locale]/products/page.tsx,partially_verified,Delegates to equipment hub.
+INV-004,/[locale]/products/[category],indexable category,en|es|pt|ar|ru,app/[locale]/products/[category]/page.tsx,partially_verified,4 known families; 20 locale/category combinations.
+INV-005,localized equipment detail routes,indexable product,en|es|pt|ar|ru,lib/product-model.ts and data/products.generated.json,verified_source,88 published products x 5 locale records = 440 expected product URLs; exact live list not crawled from this region.
+INV-006,/[locale]/industry-solutions,indexable hub,en|es|pt|ar|ru,app/[locale]/industry-solutions/page.tsx,partially_verified,Public route template exists.
+INV-007,/[locale]/industry-solutions/[slug],indexable industry,en|es|pt|ar|ru,app/[locale]/industry-solutions/[slug]/page.tsx,partially_verified,4 navigation industries; 20 expected locale routes.
+INV-008,/[locale]/news and company/industry children,indexable editorial,en|es|pt|ar|ru,app/[locale]/news/**,partially_verified,Data-dependent detail URLs not live-crawled.
+INV-009,/[locale]/blog and /[slug],indexable editorial,en|es|pt|ar|ru,app/[locale]/blog/**,partially_verified,Data-dependent detail URLs not live-crawled.
+INV-010,/[locale]/about-contact,indexable,en|es|pt|ar|ru,app/[locale]/about-contact/page.tsx,partially_verified,Template exists but visible prose is English hardcoded.
+INV-011,/[locale]/request-quote,noindex,en|es|pt|ar|ru,app/[locale]/request-quote/page.tsx,verified_source,Metadata declares noindex; rendering and submission not live-tested.
+INV-012,/[locale]/search,noindex,en|es|pt|ar|ru,app/[locale]/search/page.tsx,verified_source,Metadata declares noindex.
+INV-013,/[locale]/privacy and /terms,indexable,en|es|pt|ar|ru,app/[locale]/privacy/page.tsx; app/[locale]/terms/page.tsx,partially_verified,Route templates exist; text remains English.
+INV-014,/[locale]/about,/contact,/resources,/solutions and child routes,public route templates,en|es|pt|ar|ru,app/[locale] filesystem inventory,review_required,Present in source but absent from fixed sitemap list; canonical/index policy needs explicit confirmation.
+INV-015,/robots.txt,technical,en,app/robots.ts; live header check,verified,200 from current region.
+INV-016,/sitemap.xml,technical,en,app/sitemap.ts; live header check,verified,200 from current region; completeness is not passing.
+INV-017,/news-sitemap.xml,technical,en,app/news-sitemap.ts,not_verified,Source route exists but live response was not retrieved under the regional restriction.
+INV-018,/admin/**,protected,no public locale,proxy.ts; app/admin/**,verified_source,Requires server-side authentication; excluded from public crawl claims.
+INV-019,/api/**,API/nonindex,no public locale,app/api/**,verified_source,Not treated as public page inventory.
+INV-020,404,error page,no locale,app filesystem inventory,issue,No public app/not-found.tsx or app/[locale]/not-found.tsx source file was found.

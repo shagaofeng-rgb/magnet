@@ -1,0 +1,2 @@
+"use client";
+export default function Error({reset}:{error:Error & {digest?:string};reset:()=>void}){return <main className="section"><div className="shell prose"><span className="eyebrow">BZMAGNET</span><h1>Something went wrong</h1><p>Please try again. If the problem continues, send your process details through the enquiry page.</p><button className="btn btn-primary" onClick={reset}>Try again</button></div></main>}

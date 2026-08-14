@@ -47,5 +47,6 @@ test("Search Console integration is server-only and scopes imported metrics to B
   assert.doesNotMatch(source, /NEXT_PUBLIC_GOOGLE/);
   const route = read("app/api/admin/search-console/sync/route.ts");
   assert.match(route, /CRON_SECRET/);
+  assert.match(route, /SEARCH_CONSOLE_SYNC_SECRET/);
   assert.match(route, /syncSearchConsoleMetrics/);
 });

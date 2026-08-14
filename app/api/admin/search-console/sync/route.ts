@@ -4,8 +4,8 @@ import { syncSearchConsoleMetrics } from "@/lib/search-console";
 export const runtime = "nodejs";
 
 function authorized(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  return Boolean(secret && request.headers.get("authorization") === `Bearer ${secret}`);
+  const authorization = request.headers.get("authorization");
+  return [process.env.CRON_SECRET, process.env.SEARCH_CONSOLE_SYNC_SECRET].some((secret) => Boolean(secret && authorization === `Bearer ${secret}`));
 }
 
 export async function POST(request: NextRequest) {

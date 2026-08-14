@@ -1,0 +1,4 @@
+import { login } from "@/lib/admin-actions";
+export const metadata = { robots: { index: false, follow: false }, title: "后台登录" };
+export default function AdminLogin({ searchParams }: { searchParams: Promise<{ error?: string }> }) { return <LoginForm searchParams={searchParams} />; }
+async function LoginForm({ searchParams }: { searchParams: Promise<{ error?: string }> }) { const { error } = await searchParams; return <main className="admin-login"><form action={login}><span>BZMAGNET</span><h1>后台登录</h1><p>仅限已授权的站点管理员。未配置登录凭据时，后台保持关闭。</p><label>邮箱<input name="email" type="email" required autoComplete="email" /></label><label>密码<input name="password" type="password" required autoComplete="current-password" /></label>{error && <p className="admin-error">登录失败，请检查凭据或后台配置。</p>}<button type="submit">安全登录</button></form></main>; }

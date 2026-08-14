@@ -67,6 +67,11 @@ export async function writeAdminJob(siteId: string, kind: string, idempotencyKey
   await sql`insert into admin_jobs (id, site_id, kind, idempotency_key, status, payload, result) values (${crypto.randomUUID()}, ${siteId}, ${kind}, ${idempotencyKey}, 'queued', ${sql.json(payload as never)}, '{}'::jsonb) on conflict (site_id, idempotency_key) do update set status = 'queued', payload = excluded.payload`;
 }
 
+export async function completeAdminJob(siteId: string, idempotencyKey: string, status: "succeeded" | "failed", result: Record<string, unknown>) {
+  if (!sql) throw new Error("admin_store_not_configured");
+  await sql`update admin_jobs set status = ${status}, result = ${sql.json(result as never)} where site_id = ${siteId} and idempotency_key = ${idempotencyKey}`;
+}
+
 export async function storeInternalLead(input: Record<string, unknown>, attribution: Record<string, unknown>) {
   if (!sql) throw new Error("admin_store_not_configured");
   const secret = process.env.INQUIRY_ENCRYPTION_KEY || process.env.ADMIN_SESSION_SECRET;

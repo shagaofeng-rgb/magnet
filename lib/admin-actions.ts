@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { ADMIN_COOKIE, encodeAdminSession } from "@/lib/admin-console";
 import { requireAdmin } from "@/lib/admin-console";
-import { writeAdminAudit, writeAdminJob } from "@/lib/admin-store";
+import { completeAdminJob, writeAdminAudit, writeAdminJob } from "@/lib/admin-store";
+import { syncSearchConsoleMetrics } from "@/lib/search-console";
 function matchesPassword(password: string, stored: string) {
   const [scheme, iterationText, salt, expected] = stored.split("$");
   if (scheme === "pbkdf2-sha256" && iterationText && salt && expected) {
@@ -30,4 +31,23 @@ export async function queueInternalAdminCheck(formData: FormData) {
   await writeAdminJob(siteId, "internal_admin_check", idempotencyKey, { area, requestedBy: session.userId, requestedAt: new Date().toISOString() });
   await writeAdminAudit(siteId, session.userId, "queue", "internal_admin_check", area, "管理员手动记录内部检查；不调用第三方服务。");
   revalidatePath(`/admin/${siteId}/${area}`);
+}
+
+export async function syncSearchConsole(formData: FormData) {
+  const siteId = String(formData.get("siteId") || "");
+  if (siteId !== "bzmagnet") throw new Error("invalid_admin_action");
+  const session = await requireAdmin(siteId, "settings");
+  const idempotencyKey = `search-console:${new Date().toISOString().slice(0, 10)}`;
+  await writeAdminJob(siteId, "search_console_sync", idempotencyKey, { requestedBy: session.userId, requestedAt: new Date().toISOString() });
+  try {
+    const result = await syncSearchConsoleMetrics(siteId);
+    await completeAdminJob(siteId, idempotencyKey, result.configured ? "succeeded" : "failed", result);
+    await writeAdminAudit(siteId, session.userId, "sync", "search_console", result.property, result.configured ? `Search Console sync completed: ${result.rows} metric records` : "Search Console is not configured");
+  } catch (error) {
+    const code = error instanceof Error ? error.message.replace(/[^a-z0-9_-]/gi, "_").slice(0, 120) : "search_console_sync_failed";
+    await completeAdminJob(siteId, idempotencyKey, "failed", { code });
+    await writeAdminAudit(siteId, session.userId, "sync_failed", "search_console", null, `Search Console sync failed: ${code}`);
+  }
+  revalidatePath(`/admin/${siteId}/seo`);
+  revalidatePath(`/admin/${siteId}/settings`);
 }

@@ -36,3 +36,16 @@ test("admin operating layer persists real site-scoped records without external s
   assert.match(seed, /product\.status === "published"/);
   assert.match(seed, /on conflict \(id\) do update/);
 });
+
+test("Search Console integration is server-only and scopes imported metrics to BZMAGNET", () => {
+  const source = read("lib/search-console.ts");
+  assert.match(source, /server-only/);
+  assert.match(source, /GOOGLE_SEARCH_CONSOLE_SERVICE_ACCOUNT_JSON/);
+  assert.match(source, /SEARCH_CONSOLE_SITE_URL/);
+  assert.match(source, /site_id/);
+  assert.match(source, /google_search_console/);
+  assert.doesNotMatch(source, /NEXT_PUBLIC_GOOGLE/);
+  const route = read("app/api/admin/search-console/sync/route.ts");
+  assert.match(route, /CRON_SECRET/);
+  assert.match(route, /syncSearchConsoleMetrics/);
+});

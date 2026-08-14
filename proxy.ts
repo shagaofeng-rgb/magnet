@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { locales } from "@/lib/i18n";
+const blockedCountries = new Set(["CN", "IN"]);
+function blockedResponse() {
+  return new NextResponse("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"robots\" content=\"noindex\"><title>Access unavailable</title></head><body><main><h1>Access unavailable</h1><p>This website is not available in your region.</p></main></body></html>", { status: 403, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex" } });
+}
 export function proxy(request: NextRequest) {
+  const country = request.headers.get("x-vercel-ip-country")?.toUpperCase();
+  if (country && blockedCountries.has(country)) return blockedResponse();
   const { pathname } = request.nextUrl;
   if (pathname === "/") return NextResponse.redirect(new URL("/en/", request.url), 308);
   if (pathname.startsWith("/ar/%D8%A7%D9%84%D9%85%D8%B9%D8%AF%D8%A7%D8%AA/") || pathname.startsWith("/ar/المعدات/")) {

@@ -1,1 +1,33 @@
-import {Article,validateArticle} from "./editorial";export const siteEditorialConfig={domain:"bzmagnet.com",locales:["en","es","pt","ar","ru"],industryScope:["magnetic separation","bulk handling","recycling"],approvedProductFamilies:["conveyor","minerals","recycling","process"],sourceAllowlist:["government","trade association","public-company announcement","reputable industry publication"],bannedClaims:["factory ownership","guaranteed performance","stock","certification without evidence"],publishingTimezone:"Asia/Shanghai",ctaRoute:"/en/request-quote",mediaProvider:"BZMAGNET media library",sender:"BZMAGNET-only configured sender"} as const;export type Candidate={id:string;status:"candidate"|"reviewed"|"rejected";publisher:string;url:string;publishedAt?:string;relevanceAssessment:string;evidenceId:string};export type QueueItem={article:Article;approvedAt:string;publishAfter:string};export function reviewCandidates(candidates:Candidate[]){return candidates.map(x=>({...x,status:x.url.startsWith("https://")&&x.relevanceAssessment.length>=40?"reviewed" as const:"rejected" as const}))}export function publishApproved(queue:QueueItem[],now=new Date()){const eligible=queue.filter(x=>x.article.status==="approved"&&validateArticle({...x.article,status:"published"}).length===0&&new Date(x.publishAfter)<=now).sort((a,b)=>a.publishAfter.localeCompare(b.publishAfter));return eligible.slice(0,1)}export function similarity(a:Article,b:Article){const pa=new Set(a.sections.flatMap(x=>x.blocks.filter(y=>y.type==="paragraph").map(y=>"text" in y?y.text:""))),pb=new Set(b.sections.flatMap(x=>x.blocks.filter(y=>y.type==="paragraph").map(y=>"text" in y?y.text:"")));const overlap=[...pa].filter(x=>pb.has(x)).length/Math.max(1,Math.min(pa.size,pb.size));return{paragraphOverlap:overlap,blocked:overlap>=.35}}
+import type { Article } from "./editorial";
+
+/** One source of truth for News automation. Blog is deliberately absent. */
+export const siteEditorialConfig = {
+  siteId: "bzmagnet",
+  domain: "bzmagnet.com",
+  locale: "en",
+  publishingTimezone: "Asia/Shanghai",
+  publishHourUtc: 1, // 09:00 Asia/Shanghai; Vercel invokes the publish route once daily.
+  minimumPublishIntervalHours: 48,
+  sourceMaxAgeDays: 90,
+  maxNewsPerRun: 1,
+  sourceAllowlist: ["government", "trade association", "standards body", "official newsroom", "reputable industry publication"],
+  bannedClaims: ["factory ownership", "guaranteed performance", "stock", "certification without evidence", "named customer results"],
+  ctaRoute: "/en/request-quote",
+  mediaProvider: "BZMAGNET-owned media library",
+} as const;
+
+export type CandidateStatus = "discovered" | "fetched" | "verified" | "planned" | "generated" | "quality_checked" | "scheduled" | "publishing" | "published" | "needs_review" | "failed" | "archived";
+export type NewsCandidate = { id: string; status: CandidateStatus; sourceFingerprint: string; eventFingerprint: string; title: string; summary: string; industry: string; scenario: string; productIds: string[]; sources: Article["sources"]; discoveredAt: string; rejectionReasons: string[]; articleId?: string };
+
+export function isAtLeast48Hours(lastSuccessfulPublishAt: string | null | undefined, now = new Date()) {
+  return !lastSuccessfulPublishAt || now.getTime() - new Date(lastSuccessfulPublishAt).getTime() >= siteEditorialConfig.minimumPublishIntervalHours * 60 * 60 * 1000;
+}
+
+export function reviewCandidates<T extends NewsCandidate>(candidates: T[]) {
+  return candidates.map((candidate) => ({ ...candidate, status: candidate.sources.some((source) => source.url.startsWith("https://")) && candidate.summary.length >= 40 ? "verified" as const : "needs_review" as const }));
+}
+
+/** Kept for compatibility with older tests; runtime publishing is implemented in news-automation.ts. */
+export function publishApproved(queue: Array<{ article: Article; approvedAt: string; publishAfter: string }>, now = new Date()) {
+  return queue.filter((item) => item.article.contentType !== "blog" && item.article.status === "scheduled" && new Date(item.publishAfter) <= now).sort((a, b) => a.publishAfter.localeCompare(b.publishAfter)).slice(0,1);
+}

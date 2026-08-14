@@ -1,1 +1,6 @@
-{"crons":[{"path":"/api/cron/editorial-review","schedule":"0 */12 * * *"},{"path":"/api/cron/editorial-publish","schedule":"0 0 */2 * *"}]}
+{
+  "crons": [
+    { "path": "/api/cron/news-review", "schedule": "0 */12 * * *" },
+    { "path": "/api/cron/news-publish", "schedule": "0 1 * * *" }
+  ]
+}

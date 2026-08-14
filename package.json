@@ -12,10 +12,12 @@
     "test": "node --test tests/*.test.mjs",
     "guard:public": "node scripts/public-boundary-guard.mjs",
     "guard:build": "node scripts/build-output-scan.mjs",
-    "report:similarity": "node scripts/content-similarity-report.mjs"
+    "report:similarity": "node scripts/content-similarity-report.mjs",
+    "news:migrate": "node scripts/migrate-news-automation.mjs"
   },
   "dependencies": {
     "next": "16.2.10",
+    "postgres": "3.4.7",
     "react": "19.2.6",
     "react-dom": "19.2.6"
   },

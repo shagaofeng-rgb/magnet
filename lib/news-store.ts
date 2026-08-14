@@ -5,7 +5,7 @@ import type { Article } from "./editorial";
 import type { CandidateStatus, NewsCandidate } from "./editorial-workflow";
 import type { Locale } from "./i18n";
 
-const url = process.env.NEWS_DATABASE_URL || process.env.POSTGRES_URL;
+const url = process.env.NEWS_DATABASE_URL || process.env.POSTGRES_URL || process.env.DATABASE_URL;
 const sql = url ? postgres(url, { prepare: false, max: 2, idle_timeout: 10, connect_timeout: 10 }) : null;
 
 export const isNewsStoreConfigured = () => Boolean(sql);

@@ -35,6 +35,9 @@ test("admin operating layer persists real site-scoped records without external s
   assert.match(seed, /catalog_records/);
   assert.match(seed, /product\.status === "published"/);
   assert.match(seed, /on conflict \(id\) do update/);
+  const store = read("lib/admin-store.ts");
+  assert.match(store, /select 'recorded' as status/);
+  assert.doesNotMatch(store, /coalesce\(status, 'recorded'\)/);
 });
 
 test("Search Console integration is server-only and scopes imported metrics to BZMAGNET", () => {

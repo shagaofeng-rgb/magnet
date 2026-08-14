@@ -53,7 +53,7 @@ export async function getAdminModuleData(siteId: string, area: string): Promise<
     paths: [{ label: "匿名会话", value: String(sessions), source: "内部事件库", detail: "达到最小样本后显示路径", href: pageHref("paths") }, { label: "页面指标", value: String(pageRows), source: "内部事件库", detail: "不呈现可识别个人行为", href: pageHref("page-performance") }],
     settings: [{ label: "审计事件", value: String(audits), source: "审计日志", detail: "站点隔离与权限操作", href: pageHref("settings") }, { label: "未完成任务", value: String(jobs), source: "任务队列", detail: "配置不完整不会伪装为成功", href: pageHref("settings") }],
   };
-  const queue = await sql<{ status: string; target_type: string; action: string; created_at: string }[]>`select coalesce(status, 'recorded') as status, target_type, action, created_at from audit_logs where site_id = ${siteId} order by created_at desc limit 8`;
+  const queue = await sql<{ status: string; target_type: string; action: string; created_at: string }[]>`select 'recorded' as status, target_type, action, created_at from audit_logs where site_id = ${siteId} order by created_at desc limit 8`;
   return { connected: true, lastSynced, metrics: byArea[area] ?? overview, queue: queue.length ? queue.map((item) => ({ status: item.status, item: `${item.target_type}: ${item.action}`, evidence: `审计时间 ${new Date(item.created_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}`, next: "查看并按权限处理" })) : [{ status: "暂无数据", item: "尚无已记录的运营事件", evidence: "数据库已连接，未生成演示数据", next: "通过后台受限操作开始记录" }] };
 }
 

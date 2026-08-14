@@ -1,12 +1,30 @@
 "use server";
 import { createHash, pbkdf2Sync, timingSafeEqual } from "node:crypto";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { ADMIN_COOKIE, encodeAdminSession } from "@/lib/admin-console";
 import { requireAdmin } from "@/lib/admin-console";
 import { completeAdminJob, writeAdminAudit, writeAdminJob } from "@/lib/admin-store";
 import { syncSearchConsoleMetrics } from "@/lib/search-console";
+const loginFailures = new Map<string, { attempts: number; startedAt: number }>();
+const loginWindowMs = 15 * 60 * 1000;
+const loginAttemptLimit = 5;
+async function loginRateKey(email: string) {
+  const forwarded = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  return `${email}:${forwarded}`;
+}
+function loginIsRateLimited(key: string) {
+  const record = loginFailures.get(key);
+  if (!record) return false;
+  if (Date.now() - record.startedAt >= loginWindowMs) { loginFailures.delete(key); return false; }
+  return record.attempts >= loginAttemptLimit;
+}
+function recordLoginFailure(key: string) {
+  const record = loginFailures.get(key);
+  if (!record || Date.now() - record.startedAt >= loginWindowMs) loginFailures.set(key, { attempts: 1, startedAt: Date.now() });
+  else record.attempts += 1;
+}
 function matchesPassword(password: string, stored: string) {
   const [scheme, iterationText, salt, expected] = stored.split("$");
   if (scheme === "pbkdf2-sha256" && iterationText && salt && expected) {
@@ -19,7 +37,7 @@ function matchesPassword(password: string, stored: string) {
   const actual = createHash("sha256").update(password).digest("hex");
   return actual.length === stored.length && timingSafeEqual(Buffer.from(actual), Buffer.from(stored));
 }
-export async function login(formData: FormData) { const email = String(formData.get("email") || "").trim().toLowerCase(); const password = String(formData.get("password") || ""); const expectedEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase(); const expectedHash = process.env.ADMIN_PASSWORD_HASH; if (!process.env.ADMIN_SESSION_SECRET || !expectedEmail || !expectedHash || email !== expectedEmail || !matchesPassword(password, expectedHash)) redirect("/admin/login?error=1"); const token = encodeAdminSession({ userId: "bootstrap-admin", email, role: "super_admin", siteIds: ["bzmagnet"], expiresAt: Date.now() + 8 * 60 * 60 * 1000 }); (await cookies()).set(ADMIN_COOKIE, token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/admin", maxAge: 8 * 60 * 60 }); redirect("/admin/bzmagnet/overview"); }
+export async function login(formData: FormData) { const email = String(formData.get("email") || "").trim().toLowerCase(); const password = String(formData.get("password") || ""); const key = await loginRateKey(email); if (loginIsRateLimited(key)) redirect("/admin/login?error=2"); const expectedEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase(); const expectedHash = process.env.ADMIN_PASSWORD_HASH; if (!process.env.ADMIN_SESSION_SECRET || !expectedEmail || !expectedHash || email !== expectedEmail || !matchesPassword(password, expectedHash)) { recordLoginFailure(key); redirect("/admin/login?error=1"); } loginFailures.delete(key); const token = encodeAdminSession({ userId: "bootstrap-admin", email, role: "super_admin", siteIds: ["bzmagnet"], expiresAt: Date.now() + 8 * 60 * 60 * 1000 }); (await cookies()).set(ADMIN_COOKIE, token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/admin", maxAge: 8 * 60 * 60 }); redirect("/admin/bzmagnet/overview"); }
 export async function logout() { (await cookies()).delete(ADMIN_COOKIE); redirect("/admin/login"); }
 
 export async function queueInternalAdminCheck(formData: FormData) {

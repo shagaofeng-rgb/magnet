@@ -6,9 +6,11 @@ function blockedResponse() {
 }
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const internalSync = pathname === "/api/admin/search-console/sync" && Boolean(process.env.CRON_SECRET) && request.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`;
+  // These routes authenticate in their own server handlers. All public routes remain geo-blocked.
+  const protectedAdminAccess = pathname === "/admin/login" || pathname === "/admin/bzmagnet" || pathname.startsWith("/admin/bzmagnet/");
+  const protectedSync = pathname === "/api/admin/search-console/sync";
   const country = request.headers.get("x-vercel-ip-country")?.toUpperCase();
-  if (country && blockedCountries.has(country) && !internalSync) return blockedResponse();
+  if (country && blockedCountries.has(country) && !protectedAdminAccess && !protectedSync) return blockedResponse();
   if (pathname === "/") return NextResponse.redirect(new URL("/en/", request.url), 308);
   if (pathname.startsWith("/ar/%D8%A7%D9%84%D9%85%D8%B9%D8%AF%D8%A7%D8%AA/") || pathname.startsWith("/ar/المعدات/")) {
     const rewritten = request.nextUrl.clone();

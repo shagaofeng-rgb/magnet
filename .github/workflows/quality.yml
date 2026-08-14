@@ -4,12 +4,15 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: {node-version: 22, cache: npm}
-      - run: npm ci
-      - run: npm run guard:public
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npm test
-      - run: npm run build
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@v5
+        with: {node-version: 22, cache: pnpm}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run guard:public
+      - run: pnpm run typecheck
+      - run: pnpm run lint
+      - run: pnpm test
+      - run: pnpm run build

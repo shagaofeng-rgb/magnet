@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { JsonLd } from "./JsonLd";
 import { type Locale, localePath, origin } from "@/lib/i18n";
-import { type ProductRecord, productPath, visibleRows } from "@/lib/product-model";
+import { type ProductRecord, productPathFor, visibleRows } from "@/lib/product-model";
 import { relatedArticleLinks } from "@/lib/product-content-relations";
 
 type DetailCopy = {
@@ -83,16 +83,17 @@ export function ProductDetail({ product, locale }: { product: ProductRecord; loc
   const options = visibleRows(product.options);
   const canRenderSourceLanguageDetails = locale === "en";
   const relatedArticles = canRenderSourceLanguageDetails ? relatedArticleLinks(product.id, locale) : [];
-  const quote = `${localePath(locale, "request-quote")}?product=${encodeURIComponent(product.id)}&product_name=${encodeURIComponent(localized.title)}&locale=${locale}&source=${encodeURIComponent(productPath(locale, localized.slug))}&context=product-detail`;
+  const publicPath = productPathFor(locale, product);
+  const quote = `${localePath(locale, "request-quote")}?product=${encodeURIComponent(product.id)}&product_name=${encodeURIComponent(localized.title)}&locale=${locale}&source=${encodeURIComponent(publicPath)}&context=product-detail`;
   const crumbs = [
     { name: t.home, url: `${origin}/${locale}/` },
     { name: t.products, url: `${origin}/${locale}/products` },
     { name: familyName, url: `${origin}/${locale}/products` },
-    { name: localized.title, url: `${origin}${productPath(locale, localized.slug)}` },
+    { name: localized.title, url: `${origin}${publicPath}` },
   ];
 
   return <>
-    <JsonLd data={{ "@context": "https://schema.org", "@type": "Product", name: localized.title, description: localized.summary, url: `${origin}${productPath(locale, localized.slug)}`, brand: { "@type": "Brand", name: "BZMAGNET" } }} />
+    <JsonLd data={{ "@context": "https://schema.org", "@type": "Product", name: localized.title, description: localized.summary, url: `${origin}${publicPath}`, brand: { "@type": "Brand", name: "BZMAGNET" } }} />
     <JsonLd data={{ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: crumbs.map((item, index) => ({ "@type": "ListItem", position: index + 1, name: item.name, item: item.url })) }} />
     {canRenderSourceLanguageDetails && product.faq.length > 0 && <JsonLd data={{ "@context": "https://schema.org", "@type": "FAQPage", mainEntity: product.faq.map((item) => ({ "@type": "Question", name: item.question, acceptedAnswer: { "@type": "Answer", text: item.answer } })) }} />}
     <div className="shell product-breadcrumbs" aria-label="Breadcrumb">{crumbs.map((item, index) => <span key={item.url}>{index > 0 && " / "}<Link href={item.url}>{item.name}</Link></span>)}</div>

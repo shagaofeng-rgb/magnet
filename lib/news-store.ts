@@ -11,6 +11,8 @@ const sql = url ? postgres(url, { prepare: false, max: 2, idle_timeout: 10, conn
 
 export const isNewsStoreConfigured = () => Boolean(sql);
 export type NewsRun = { id: string; kind: "review" | "publish"; status: "running" | "succeeded" | "failed" | "skipped"; startedAt: string; finishedAt?: string; details: Record<string, unknown> };
+export type ActiveNewsFeed = { id: string; publisher: string; url: string; highTrust: boolean; region?: string; licenseNote?: string; sourceId: string };
+export type SourceHealthCandidate = { id: string; requestedDomain: string; canonicalDomain?: string; sourceOrdinal: number; catalogVersionId: string };
 
 function uuid() { return crypto.randomUUID(); }
 function articleFromRow(row: { article: Article }) { return row.article; }
@@ -39,6 +41,79 @@ export async function getLastSuccessfulPublishAt() {
   if (!sql) return null;
   const rows = await sql<{ published_at: string }[]>`select published_at from news_articles where status = 'published' order by published_at desc limit 1`;
   return rows[0]?.published_at ?? null;
+}
+
+/** Only a verified, robots-permitted source in the active catalog can feed automation. */
+export async function listActiveNewsFeeds(limit = 24): Promise<ActiveNewsFeed[]> {
+  if (!sql) return [];
+  try {
+    const rows = await sql<{ id: string; name: string; url: string; tier: string; source_catalog_id: string }[]>`
+      select source.id::text as id, source.name, source.feed_url as url,
+        source.tier, source.catalog_version_id::text as source_catalog_id
+      from news_sources source
+      join news_source_catalog_versions version on version.id = source.catalog_version_id
+      where source.site_id = 'bzmagnet' and version.site_id = 'bzmagnet' and version.status = 'active'
+        and source.active = true and source.validation_status = 'verified' and source.robots_allowed = true
+        and source.feed_url is not null
+        and source.tier <> 'discovery-only' and source.discovery_methods ? 'rss'
+        and (source.last_used_at is null or source.last_used_at < now() - interval '14 days')
+      order by source.last_used_at asc nulls first, source.source_ordinal asc
+      limit ${limit}`;
+    return rows.map((row) => ({ id: row.id, publisher: row.name, url: /^https:\/\//i.test(row.url) ? row.url : `https://${row.url}`, highTrust: row.tier === "A" || row.tier === "B", licenseNote: "Source is approved for factual citation; external imagery is not imported.", sourceId: row.id }));
+  } catch { return []; }
+}
+
+export async function countActiveNewsSources() {
+  if (!sql) return 0;
+  try {
+    const rows = await sql<{ count: string }[]>`
+      select count(*)::text as count from news_sources source
+      join news_source_catalog_versions version on version.id = source.catalog_version_id
+      where source.site_id = 'bzmagnet' and version.status = 'active'
+        and source.active = true and source.validation_status = 'verified' and source.robots_allowed = true
+        and source.feed_url is not null
+        and source.tier <> 'discovery-only' and source.discovery_methods ? 'rss'`;
+    return Number(rows[0]?.count || 0);
+  } catch { return 0; }
+}
+
+/** A bounded work queue for slow, robots-first source validation. It never reads community-only sources. */
+export async function listSourceHealthCandidates(limit = 6): Promise<SourceHealthCandidate[]> {
+  if (!sql) return [];
+  const rows = await sql<SourceHealthCandidate[]>`
+    select source.id::text as id, source.requested_domain as "requestedDomain",
+      source.canonical_domain as "canonicalDomain", source.source_ordinal as "sourceOrdinal",
+      source.catalog_version_id::text as "catalogVersionId"
+    from news_sources source
+    join news_source_catalog_versions version on version.id = source.catalog_version_id
+    where source.site_id = 'bzmagnet' and version.site_id = 'bzmagnet'
+      and version.status in ('draft', 'active')
+      and source.validation_status = 'pending' and source.tier <> 'discovery-only'
+    order by source.last_checked_at asc nulls first, source.source_ordinal asc
+    limit ${limit}`;
+  return rows;
+}
+
+export async function recordSourceHealthCheck(input: {
+  sourceId: string; httpStatus?: number; robotsAllowed?: boolean; feedUrl?: string;
+  status: "verified" | "inactive" | "robots-blocked" | "needs_review"; detail: Record<string, unknown>;
+}) {
+  if (!sql) return;
+  await sql.begin(async (transaction) => {
+    await transaction`
+      update news_sources set validation_status = ${input.status}, robots_allowed = ${input.robotsAllowed ?? null},
+        feed_url = ${input.feedUrl ?? null}, active = ${input.status === "verified" && Boolean(input.feedUrl)},
+        last_checked_at = now(), updated_at = now()
+      where id = ${input.sourceId}::uuid and site_id = 'bzmagnet'`;
+    await transaction`
+      insert into news_source_health_checks (id, source_id, http_status, robots_allowed, method, detail)
+      values (${uuid()}::uuid, ${input.sourceId}::uuid, ${input.httpStatus ?? null}, ${input.robotsAllowed ?? null}, 'robots-and-feed', ${transaction.json(input.detail as never)})`;
+  });
+}
+
+export async function markNewsSourceUsed(sourceId?: string) {
+  if (!sql || !sourceId) return;
+  await sql`update news_sources set last_used_at = now(), use_count = use_count + 1, updated_at = now() where id = ${sourceId}::uuid and site_id = 'bzmagnet'`;
 }
 
 export async function upsertCandidate(candidate: NewsCandidate) {

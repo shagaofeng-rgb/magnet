@@ -1,5 +1,5 @@
 import type { Locale } from "./i18n";
-import { publicProducts } from "./product-model";
+import { productPathFor, publicProducts } from "./product-model";
 
 export const families = [
   { key: "conveyor", slug: "conveyor-magnetic-separation", title: "Conveyor Magnetic Separators" },
@@ -11,3 +11,4 @@ export const products = publicProducts.map((product) => ({ id: product.id, famil
 export const industries = ["mining-minerals", "coal-bulk-handling", "aggregates-quarrying", "cement-building-materials", "recycling"];
 export const solutions = ["crusher-protection", "tramp-iron-removal", "material-purity", "ferrous-recovery", "non-ferrous-sorting", "fine-material-separation"];
 export function productBySlug(locale: Locale, slug: string) { return products.find((product) => product.locales[locale].slug === slug); }
+export function productUrl(locale: Locale, product: (typeof publicProducts)[number]) { return productPathFor(locale, product); }

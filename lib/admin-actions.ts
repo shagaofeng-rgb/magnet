@@ -7,6 +7,7 @@ import { ADMIN_COOKIE, encodeAdminSession } from "@/lib/admin-console";
 import { requireAdmin } from "@/lib/admin-console";
 import { completeAdminJob, writeAdminAudit, writeAdminJob } from "@/lib/admin-store";
 import { syncSearchConsoleMetrics } from "@/lib/search-console";
+import { runSourceHealthChecks } from "@/lib/news/source-health";
 const loginFailures = new Map<string, { attempts: number; startedAt: number }>();
 const loginWindowMs = 15 * 60 * 1000;
 const loginAttemptLimit = 5;
@@ -68,4 +69,14 @@ export async function syncSearchConsole(formData: FormData) {
   }
   revalidatePath(`/admin/${siteId}/seo`);
   revalidatePath(`/admin/${siteId}/settings`);
+}
+
+/** Runs the same bounded, robots-first validation used by the scheduled worker. */
+export async function validateNewsSources(formData: FormData) {
+  const siteId = String(formData.get("siteId") || "");
+  if (siteId !== "bzmagnet") throw new Error("invalid_admin_action");
+  const session = await requireAdmin(siteId, "settings");
+  const result = await runSourceHealthChecks();
+  await writeAdminAudit(siteId, session.userId, "validate", "news_source_catalog", null, `Bounded source validation: ${result.attempted} checked, ${result.verified} verified, ${result.blocked} robots-blocked.`);
+  revalidatePath(`/admin/${siteId}/news-operations`);
 }

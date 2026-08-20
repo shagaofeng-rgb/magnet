@@ -9,6 +9,7 @@ try {
   const tables = await sql`select to_regclass('public.sites') as sites`;
   if (!tables[0]?.sites) await sql.unsafe(fs.readFileSync("database/admin-schema.sql", "utf8"));
   else await sql.unsafe(fs.readFileSync("database/migrations/20260814_news_automation.sql", "utf8"));
+  await sql.unsafe(fs.readFileSync("database/migrations/20260820_news_source_catalog.sql", "utf8"));
   await sql.unsafe(fs.readFileSync("database/migrations/20260814_admin_operating_layer.sql", "utf8"));
   await sql`
     insert into sites (id, name, origin, timezone, locales)

@@ -29,7 +29,7 @@ export type Article = {
   seo: { slug: string; metaTitle: string; metaDescription: string; canonicalPath: string; ogImageAssetId?: string };
   publishedAt?: string;
   modifiedAt?: string;
-  internal: { topicBriefId: string; evidenceIds: string[]; companyEvidenceApproved?: boolean; translationReviewed: boolean; generationRecordId: string; validationOutput: string[] };
+  internal: { topicBriefId: string; evidenceIds: string[]; companyEvidenceApproved?: boolean; translationReviewed: boolean; generationRecordId: string; validationOutput: string[]; humanizerAudit?: { originalDraftHash: string; humanizedDraftHash: string; factualFieldsLocked: string[]; removedAiPatterns: string[]; prohibitedPhrasesFound: string[]; factDeltaDetected: boolean; processedAt: string } };
 };
 
 export const editorialAssets = {

@@ -8,7 +8,22 @@ export type ProductMedia = { assetId: string; src: string; alt: Record<Locale, s
 export type ProductRecord = { id: string; status: "draft" | "approved" | "published" | "archived"; familyId: string; familyLabel: string; productType: string; verifiedName: string; model?: string; media: ProductMedia[]; applications: Array<{ title: string; context: string; placement: string; material: string }>; capabilities: string[]; selectionInputs: string[]; specifications: Array<{ label: string; value?: VerifiedValue; visibility: Visibility }>; options: Array<{ label: string; value?: VerifiedValue; visibility: Visibility }>; limitations: string[]; maintenance?: string[]; faq: Array<{ question: string; answer: string }>; relatedProductIds: string[]; locale: Record<Locale, ProductLocale> };
 
 export const equipmentSegments: Record<Locale, string> = { en: "equipment", es: "equipos", pt: "equipamentos", ar: "المعدات", ru: "oborudovanie" };
-export const productPath = (locale: Locale, slug: string) => `/${locale}/${equipmentSegments[locale]}/${slug}`;
+/**
+ * Public product URLs are BZMAGNET-owned category URLs.  The older
+ * locale-specific equipment URLs remain aliases only and are redirected in a
+ * single hop by their route handlers, so an existing inbound link is never
+ * silently turned into a duplicate canonical page.
+ */
+export const productCategorySlugs: Record<string, string> = {
+  conveyor: "conveyor-magnetic-separation",
+  minerals: "mineral-bulk-separation",
+  recycling: "recycling-metal-sorting",
+  process: "process-magnets-filters",
+};
+export const productCategoryPath = (familyId: string) => productCategorySlugs[familyId] || "equipment";
+export const productPath = (locale: Locale, slug: string, familyId?: string) => `/${locale}/products/${familyId ? productCategoryPath(familyId) : "equipment"}/${slug}`;
+export const productPathFor = (locale: Locale, product: Pick<ProductRecord, "familyId" | "locale">) => productPath(locale, product.locale[locale].slug, product.familyId);
+export const legacyProductPath = (locale: Locale, slug: string) => `/${locale}/${equipmentSegments[locale]}/${slug}`;
 const denied = /cowin|TBD|Update Note|sourceClaims|```|manufacturer|guaranteed/i;
 export function validateProductForPublication(product: ProductRecord) {
   const errors: string[] = [];

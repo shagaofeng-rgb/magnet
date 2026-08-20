@@ -28,7 +28,7 @@ export const siteEditorialConfig = {
 } as const;
 
 export type CandidateStatus = "discovered" | "fetched" | "verified" | "planned" | "generated" | "quality_checked" | "scheduled" | "publishing" | "published" | "needs_review" | "failed" | "archived";
-export type NewsCandidate = { id: string; status: CandidateStatus; sourceFingerprint: string; eventFingerprint: string; title: string; summary: string; industry: string; scenario: string; productIds: string[]; sources: Article["sources"]; discoveredAt: string; rejectionReasons: string[]; articleId?: string };
+export type NewsCandidate = { id: string; status: CandidateStatus; sourceFingerprint: string; eventFingerprint: string; title: string; summary: string; industry: string; scenario: string; productIds: string[]; sources: Article["sources"]; discoveredAt: string; rejectionReasons: string[]; articleId?: string; sourceId?: string };
 
 export function isAtLeast48Hours(lastSuccessfulPublishAt: string | null | undefined, now = new Date()) {
   return !lastSuccessfulPublishAt || now.getTime() - new Date(lastSuccessfulPublishAt).getTime() >= siteEditorialConfig.minimumPublishIntervalHours * 60 * 60 * 1000;

@@ -100,13 +100,29 @@ export async function getAdminModuleData(siteId: string, area: string, rangeDays
     const typeRows = await sql<{ label: string; value: number }[]>`select record_type as label, count(*)::int as value from catalog_records where site_id = ${siteId} group by record_type order by value desc`;
     breakdowns = [{ title: "发布状态", items: bars(statusRows), emptyText: "尚无产品记录。" }, { title: "目录类型", items: bars(typeRows), emptyText: "尚无目录记录。" }, { title: "页面访问", items: bars(pageRows), emptyText: "当前范围内暂无产品页面访问。" }];
     table = { title: "产品目录", columns: ["名称", "链接标识", "语言", "状态", "更新时间"], rows: rows.map((row) => [row.title, row.slug || "—", row.locale, row.status, dateTime(row.updated_at)]), emptyText: "尚未录入产品记录。" };
-  } else if (area === "news" || area === "news-operations") {
+  } else if (area === "news") {
     const rows = await sql<{ title: string; content_type: string; status: string; locale: string; updated_at: string }[]>`select title, content_type, status, locale, updated_at from content_records where site_id = ${siteId} order by updated_at desc limit 50`;
     const statusRows = await sql<{ label: string; value: number }[]>`select status as label, count(*)::int as value from content_records where site_id = ${siteId} group by status order by value desc`;
     const typeRows = await sql<{ label: string; value: number }[]>`select content_type as label, count(*)::int as value from content_records where site_id = ${siteId} group by content_type order by value desc`;
     const jobRows = await sql<{ label: string; value: number }[]>`select status as label, count(*)::int as value from admin_jobs where site_id = ${siteId} group by status order by value desc`;
     breakdowns = [{ title: "内容状态", items: bars(statusRows), emptyText: "尚无内容记录。" }, { title: "内容类型", items: bars(typeRows), emptyText: "尚无内容记录。" }, { title: "任务状态", items: bars(jobRows), emptyText: "尚无运行任务。" }];
-    table = { title: area === "news" ? "内容记录" : "发布任务", columns: ["标题", "类型", "语言", "状态", "更新时间"], rows: rows.map((row) => [row.title, row.content_type, row.locale, row.status, dateTime(row.updated_at)]), emptyText: "尚无已保存的内容记录。" };
+    table = { title: "内容记录", columns: ["标题", "类型", "语言", "状态", "更新时间"], rows: rows.map((row) => [row.title, row.content_type, row.locale, row.status, dateTime(row.updated_at)]), emptyText: "尚无已保存的内容记录。" };
+  } else if (area === "news-operations") {
+    const installed = await sql<{ source_catalog: string | null }[]>`select to_regclass('public.news_sources')::text as source_catalog`;
+    const rows = installed[0]?.source_catalog ? await sql<{ name: string; source_ordinal: number; validation_status: string; active: boolean; robots_allowed: boolean | null; feed_url: string | null; last_checked_at: string | null; last_used_at: string | null }[]>`
+      select source.name, source.source_ordinal, source.validation_status, source.active, source.robots_allowed, source.feed_url, source.last_checked_at, source.last_used_at
+      from news_sources source join news_source_catalog_versions version on version.id = source.catalog_version_id
+      where source.site_id = ${siteId} and version.status = 'active' order by source.source_ordinal asc limit 50` : [];
+    const statusRows = installed[0]?.source_catalog ? await sql<{ label: string; value: number }[]>`
+      select validation_status as label, count(*)::int as value from news_sources source join news_source_catalog_versions version on version.id = source.catalog_version_id
+      where source.site_id = ${siteId} and version.status = 'active' group by validation_status order by value desc` : [];
+    const activeRows = installed[0]?.source_catalog ? await sql<{ label: string; value: number }[]>`
+      select case when active and robots_allowed and feed_url is not null and validation_status = 'verified' then '可用于采集' else '未启用或待审核' end as label, count(*)::int as value
+      from news_sources source join news_source_catalog_versions version on version.id = source.catalog_version_id
+      where source.site_id = ${siteId} and version.status = 'active' group by 1 order by value desc` : [];
+    const jobRows = installed[0]?.source_catalog ? await sql<{ label: string; value: number }[]>`select status as label, count(*)::int as value from news_runs where site_id = ${siteId} group by status order by value desc` : [];
+    breakdowns = [{ title: "来源核验状态", items: bars(statusRows), emptyText: "尚未导入来源目录。" }, { title: "可用来源", items: bars(activeRows), emptyText: "尚未导入来源目录。" }, { title: "News 运行记录", items: bars(jobRows), emptyText: "尚无 News 运行记录。" }];
+    table = { title: "活动来源目录", columns: ["编号", "来源", "核验状态", "采集资格", "Robots", "订阅入口", "最近检查", "最近使用"], rows: rows.map((row) => [String(row.source_ordinal), row.name, row.validation_status, row.active && row.feed_url ? "已启用" : "未启用", row.robots_allowed === true ? "允许" : row.robots_allowed === false ? "禁止" : "待检查", row.feed_url ? "已发现" : "待发现", dateTime(row.last_checked_at), dateTime(row.last_used_at)]), emptyText: "当前没有活动来源目录。先导入草稿、完成低频核验，再显式启用版本。" };
   } else if (area === "forms") {
     const rows = await sql<{ id: string; lead_status: string; created_at: string; attribution: { locale?: string; source?: string; product_name?: string } | null }[]>`select id::text, lead_status, created_at, attribution from form_leads where site_id = ${siteId} and created_at >= ${start} order by created_at desc limit 50`;
     const statusRows = await sql<{ label: string; value: number }[]>`select lead_status as label, count(*)::int as value from form_leads where site_id = ${siteId} and created_at >= ${start} group by lead_status order by value desc`;

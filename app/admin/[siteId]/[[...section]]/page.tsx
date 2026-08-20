@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { adminModules, requireAdmin, sites } from "@/lib/admin-console";
-import { logout, syncSearchConsole } from "@/lib/admin-actions";
+import { logout, syncSearchConsole, validateNewsSources } from "@/lib/admin-actions";
 import { getAdminModuleData } from "@/lib/admin-store";
 
 type Params = { siteId: string; section?: string[] };
@@ -71,6 +71,7 @@ export default async function AdminModulePage({ params, searchParams }: { params
       </header>
       <section className={`admin-sync ${data.connected ? "ready" : ""}`}><span />{data.connected ? <>站点数据已连接 <small>最近 Search Console 同步：{formatTime(data.lastSynced, site.timezone)}</small></> : "数据连接未完成"}</section>
       {canConfigure && area[0] === "seo" ? <section className="admin-action"><div><strong>Google Search Console</strong><span>同步后会更新当前站点的搜索表现数据。</span></div><form action={syncSearchConsole}><input type="hidden" name="siteId" value={siteId} /><button type="submit">同步搜索数据</button></form></section> : null}
+      {canConfigure && area[0] === "news-operations" ? <section className="admin-action"><div><strong>来源目录核验</strong><span>每次最多检查 6 条待核验来源的 robots、可访问性与 RSS/Atom 入口；不会抓取文章或发布内容。</span></div><form action={validateNewsSources}><input type="hidden" name="siteId" value={siteId} /><button type="submit">核验下一批来源</button></form></section> : null}
       <section className="admin-metrics admin-metrics-dense" aria-label={`${content.title}关键数据`}>{data.metrics.map((metric) => <Link key={metric.label} href={metric.href}><article><small>{metric.label}</small><strong>{metric.value}</strong>{metric.detail ? <em>{metric.detail}</em> : null}<i /></article></Link>)}</section>
       <section className="admin-panel admin-trend-panel"><h2>每日数据变化</h2><TrendChart points={data.trend} /></section>
       <div className="admin-breakdown-grid">{data.breakdowns.map((breakdown) => <Breakdown key={breakdown.title} {...breakdown} />)}</div>

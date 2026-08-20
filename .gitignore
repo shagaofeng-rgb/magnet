@@ -6,4 +6,6 @@ node_modules/
 data/migrations/*.private.json
 reports/private/
 data/private-migration/
+data/private-audits/
+private/sources/
 *.tsbuildinfo

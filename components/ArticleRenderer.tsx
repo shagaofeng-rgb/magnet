@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { articlePath, editorialAssets, type Article } from "@/lib/editorial";
 import { origin } from "@/lib/i18n";
-import { productPath, publicProducts } from "@/lib/product-model";
+import { productPathFor, publicProducts } from "@/lib/product-model";
 import { JsonLd } from "./JsonLd";
 
 export function ArticleRenderer({ article }: { article: Article }) {
@@ -22,7 +22,7 @@ export function ArticleRenderer({ article }: { article: Article }) {
         {article.sections.map((section) => { const Tag = section.level === 2 ? "h2" : "h3"; return <section key={section.heading}><Tag id={slug(section.heading)}>{section.heading}</Tag>{section.blocks.map((block, index) => <BlockView key={index} block={block} />)}</section>; })}
         {article.contentType !== "blog" && article.sources.length > 0 && <section><h2>Sources &amp; verification</h2><ul>{article.sources.map((source) => <li key={source.url}><a href={source.url} rel="nofollow noopener">{source.publisher}: {source.title}</a> ({source.publishedAt ?? "date not available"}; checked {source.accessedAt.slice(0, 10)})</li>)}</ul></section>}
         {article.faq.length > 0 && <section><h2>Frequently Asked Questions</h2>{article.faq.map((item) => <details key={item.question}><summary>{item.question}</summary><p>{item.answer}</p></details>)}</section>}
-        {relatedProducts.length > 0 && <section><h2>Related equipment</h2><ul>{relatedProducts.map((product) => product && <li key={product.id}><Link href={productPath(article.locale, product.locale[article.locale].slug)}>{product.locale[article.locale].title}</Link></li>)}</ul></section>}
+        {relatedProducts.length > 0 && <section><h2>Related equipment</h2><ul>{relatedProducts.map((product) => product && <li key={product.id}><Link href={productPathFor(article.locale, product)}>{product.locale[article.locale].title}</Link></li>)}</ul></section>}
         <div className="article-cta"><h2>{article.cta.label}</h2><p>{article.cta.text}</p><Link className="btn btn-orange" href={article.cta.href}>{article.cta.label}</Link></div>
       </div></div>
     </article>

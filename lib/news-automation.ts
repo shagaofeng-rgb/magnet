@@ -139,12 +139,14 @@ export async function reviewNewsCandidates(): Promise<RunResult> {
   if (!(await acquireNewsLock("bzmagnet:news-review"))) return { success: true, action: "review", published: 0, reviewed: 0, needsReview: 0, message: "A review run is already active." };
   const startedAt = new Date().toISOString();
   try {
+    // Source validation is safe and useful even while automated publishing is
+    // disabled: it only fetches a bounded set of robots files and landing pages.
+    const sourceHealth = await runSourceHealthChecks();
     if (newsAutomationMode() !== "external_sources") {
-      const result = { success: true, action: "review", published: 0, reviewed: 0, needsReview: 0, message: "Internal-only News mode is active; no external sources were collected." };
+      const result = { success: true, action: "review", published: 0, reviewed: 0, needsReview: 0, message: `Internal-only News mode is active; validated ${sourceHealth.attempted} sources and collected no external candidates.` };
       await recordNewsRun({ id: crypto.randomUUID(), kind: "review", status: "skipped", startedAt, finishedAt: new Date().toISOString(), details: result });
       return result;
     }
-    const sourceHealth = await runSourceHealthChecks();
     const feeds = await configuredFeeds();
     if (!feeds.length) return { success: false, action: "review", published: 0, reviewed: 0, needsReview: 0, message: "No verified, robots-permitted source is available in the active BZMAGNET source catalog; collection skipped.", reasons: ["active-source-catalog-not-configured"] };
     let reviewed = 0, needsReview = 0;

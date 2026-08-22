@@ -1,9 +1,18 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { isLocale, localePath } from "@/lib/i18n";
 import { articlePath, editorialAssets, publishedArticles } from "@/lib/editorial";
+import { alternates } from "@/lib/seo";
 import { homeCopy } from "@/lib/site-copy";
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+  const { locale } = await params;
+  if (!isLocale(locale)) return {};
+  const copy = homeCopy[locale];
+  return { title: `${copy.blogHeading} | BZMAGNET`, description: copy.heroBody, alternates: alternates(locale, "blog") };
+}
 
 export default async function Blog({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;

@@ -15,7 +15,7 @@ export function humanizeArticle(article: Article, lockedFields: string[]): { art
   const before = JSON.parse(JSON.stringify(article)) as Article;
   const removedAiPatterns: string[] = [];
   const normalizeText = (text: string) => {
-    let value = text.replace(/\s+/gu, " ").trim();
+    const value = text.replace(/\s+/gu, " ").trim();
     for (const pattern of aiPatterns) if (pattern.test(value)) removedAiPatterns.push(pattern.source);
     return value;
   };

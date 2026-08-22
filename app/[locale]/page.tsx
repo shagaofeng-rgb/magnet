@@ -3,31 +3,79 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { JsonLd } from "@/components/JsonLd";
-import { articlePath } from "@/lib/editorial";
-import { families, products } from "@/lib/content";
+import { families } from "@/lib/content";
 import { categoryImages, homeCopy, industrySlugs } from "@/lib/site-copy";
 import { isLocale, localePath, origin } from "@/lib/i18n";
-import { publishedNewsArticles } from "@/lib/news-public";
 import { alternates } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
-export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> { const { locale } = await params; if (!isLocale(locale)) return {}; const c = homeCopy[locale]; return { title: c.metaTitle, description: c.metaDescription, alternates: alternates(locale), openGraph: { title: c.metaTitle, description: c.metaDescription, url: `${origin}/${locale}`, siteName: "BZMAGNET", type: "website", images: [{ url: `${origin}/media/generated/home-hero-v2.png`, width: 1536, height: 1024, alt: c.heroAlt }] } }; }
 
-const approvedProducts = products.filter(product=>product.locales.en.title&&product.locales.en.summary&&product.approvedImage?.ownershipStatus==="approved").slice(0, 8);
+const industryImages = ["industry-mining.png", "industry-cement.png", "industry-recycling.png", "industry-coal.png"];
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+  const { locale } = await params;
+  if (!isLocale(locale)) return {};
+  const copy = homeCopy[locale];
+  return {
+    title: copy.metaTitle,
+    description: copy.metaDescription,
+    alternates: alternates(locale),
+    openGraph: {
+      title: copy.metaTitle,
+      description: copy.metaDescription,
+      url: `${origin}/${locale}`,
+      siteName: "BZMAGNET",
+      type: "website",
+      images: [{ url: `${origin}/media/generated/home-hero-v2.png`, width: 1536, height: 1024, alt: copy.heroAlt }],
+    },
+  };
+}
 
 export default async function Home({ params }: { params: Promise<{ locale: string }> }) {
-  const { locale } = await params; if (!isLocale(locale)) notFound();
-  const c = homeCopy[locale];
-  const newsItems = (await publishedNewsArticles(locale)).slice(0, 6);
-  const schemas = [{ "@context": "https://schema.org", "@type": "Organization", name: "BZMAGNET", url: origin }, { "@context": "https://schema.org", "@type": "WebSite", name: "BZMAGNET", url: origin, inLanguage: locale }, { "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: c.home ?? "BZMAGNET", url: `${origin}/${locale}` }] }];
-  return <>{schemas.map((data, index) => <JsonLd key={index} data={data} />)}
-    <section className="home-hero"><div className="shell home-hero-grid"><div className="home-hero-copy"><span className="eyebrow">{c.eyebrow}</span><h1>{c.heroTitle}</h1><p>{c.heroBody}</p><div className="actions"><Link className="btn btn-blue" href={localePath(locale, "products")}>{c.exploreProducts}</Link><Link className="btn btn-outline" href={localePath(locale, "request-quote")}>{c.requestQuote}</Link></div></div><div className="home-hero-media"><Image src="/media/generated/home-hero-v2.png" alt={c.heroAlt} fill priority sizes="(max-width: 900px) 100vw, 50vw" /></div></div><div className="shell benefit-grid">{c.benefits.map((benefit, index) => <article key={benefit.title}><span aria-hidden="true">{["01", "02", "03"][index]}</span><div><h2>{benefit.title}</h2><p>{benefit.text}</p></div></article>)}</div></section>
-    <section className="home-section"><div className="shell"><SectionTitle title={c.browseTitle} /><div className="category-grid">{families.map((family, index) => <Link className="image-card" key={family.key} href={localePath(locale, `products/${family.slug}`)}><div className="card-media"><Image src={`/media/generated/${categoryImages[index]}`} alt="" fill sizes="(max-width: 700px) 100vw, (max-width: 1000px) 50vw, 25vw" /></div><div className="image-card-body"><h3>{c.categories[index].title}</h3><p>{c.categories[index].description}</p><strong>{c.viewCategory} <span aria-hidden="true">→</span></strong></div></Link>)}</div></div></section>
-    <section className="home-section home-muted"><div className="shell"><SectionTitle title={c.industryTitle} /><div className="industry-grid">{industrySlugs.map((slug, index) => <Link className="industry-card" key={slug} href={localePath(locale, `industry-solutions/${slug}`)}><div className="card-media"><Image src={`/media/generated/${["industry-mining.png", "industry-cement.png", "industry-recycling.png", "industry-coal.png"][index]}`} alt={c.industries[index].alt} fill sizes="(max-width: 700px) 100vw, 50vw" /></div><div><h3>{c.industries[index].title}</h3><p>{c.industryDescription}</p><strong>{c.exploreSolution} <span aria-hidden="true">→</span></strong></div></Link>)}</div></div></section>
-    <section className="home-section"><div className="shell quote-checklist"><div><span className="eyebrow">{c.quoteEyebrow}</span><h2>{c.checklistTitle}</h2><p>{c.checklistNote}</p><Link className="btn btn-blue" href={`${localePath(locale, "request-quote")}?context=homepage-checklist`}>{c.sendRequirements}</Link></div><ul>{c.checklist.map((item, index) => <li key={item}><span>{index + 1}</span>{item}</li>)}</ul></div></section>
-    <section className="home-section home-muted"><div className="shell"><SectionTitle title={c.featuredTitle} />{approvedProducts.length > 0 && <div className="product-grid">{approvedProducts.map((product) => <article className="home-product" key={product.id}><div className="product-visual"><Image src={product.approvedImage.src} alt={product.approvedImage.alt[locale]} fill sizes="(max-width:650px) 100vw, (max-width:1000px) 50vw, 25vw" /></div><h3>{product.locales[locale].title}</h3><p>{product.locales[locale].summary}</p><Link href={localePath(locale, `equipment/${product.locales[locale].slug}`)}>{c.viewProduct} <span aria-hidden="true">→</span></Link></article>)}</div>}</div></section>
-    <section className="home-section"><div className="shell"><SectionTitle title={c.insightsTitle} /><div className="insights-empty"><div><span>NEWS</span><h3>{c.newsHeading}</h3>{newsItems.length ? <div className="home-news-list">{newsItems.map((item) => <Link key={item.id} href={articlePath(item)}><time>{item.publishedAt}</time><strong>{item.title}</strong><small>{item.summary}</small></Link>)}</div> : <p>{c.noPublished}</p>}<Link href={localePath(locale, "news")}>{c.viewNews} →</Link></div><div><span>BLOG</span><h3>{c.blogHeading}</h3><p>{c.noPublished}</p><Link href={localePath(locale, "blog")}>{c.viewBlog} →</Link></div></div></div></section>
-    <section className="shell final-cta"><div><h2>{c.finalTitle}</h2><p>{c.finalText}</p></div><Link className="btn btn-orange" href={localePath(locale, "request-quote")}>{c.requestQuote}</Link></section>
+  const { locale } = await params;
+  if (!isLocale(locale)) notFound();
+  const copy = homeCopy[locale];
+  const selectionSteps = copy.checklist.slice(0, 4);
+  const schemas = [
+    { "@context": "https://schema.org", "@type": "Organization", name: "BZMAGNET", url: origin },
+    { "@context": "https://schema.org", "@type": "WebSite", name: "BZMAGNET", url: origin, inLanguage: locale },
+    { "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: copy.home ?? "BZMAGNET", url: `${origin}/${locale}` }] },
+  ];
+
+  return <>
+    {schemas.map((data, index) => <JsonLd key={index} data={data} />)}
+    <section className="reference-hero">
+      <div className="shell reference-hero-grid">
+        <div className="reference-hero-copy">
+          <p className="reference-eyebrow">{copy.eyebrow}</p><span className="reference-rule" aria-hidden="true" />
+          <h1>{copy.heroTitle}</h1><p className="reference-lead">{copy.heroBody}</p>
+          <div className="reference-actions"><Link className="reference-button reference-button-orange" href={localePath(locale, "products")}>{copy.exploreProducts}</Link><Link className="reference-button reference-button-outline" href={localePath(locale, "request-quote")}>{copy.requestQuote}</Link></div>
+        </div>
+        <div className="reference-hero-media"><Image src="/media/generated/home-hero-v2.png" alt={copy.heroAlt} fill priority sizes="(max-width: 940px) 100vw, 53vw" /></div>
+      </div>
+    </section>
+    <section className="reference-section reference-families">
+      <div className="shell"><div className="reference-section-heading"><p className="reference-eyebrow">{copy.browseTitle}</p><h2>{copy.browseTitle}</h2></div>
+        <div className="reference-family-grid">{families.map((family, index) => <Link key={family.key} className="reference-family-card" href={localePath(locale, `products/${family.slug}`)}>
+          <div className="reference-family-image"><Image src={`/media/generated/${categoryImages[index]}`} alt={copy.categories[index].title} fill sizes="(max-width: 620px) 100vw, (max-width: 960px) 50vw, 25vw" /></div>
+          <div className="reference-family-copy"><h3>{copy.categories[index].title}</h3><p>{copy.categories[index].description}</p><span>{copy.viewCategory} <b aria-hidden="true">→</b></span></div>
+        </Link>)}</div>
+      </div>
+    </section>
+    <section className="reference-selection">
+      <div className="shell reference-selection-inner">
+        <div className="reference-selection-intro"><p className="reference-eyebrow">{copy.quoteEyebrow}</p><h2>{copy.checklistTitle}</h2><p>{copy.checklistNote}</p></div>
+        <ol className="reference-selection-steps">{selectionSteps.map((step, index) => <li key={step}><span className="reference-step-number">{String(index + 1).padStart(2, "0")}</span><div><h3>{step}</h3><p>{copy.checklist[index + 1] ?? copy.checklistNote}</p></div></li>)}</ol>
+        <Link className="reference-selection-link" href={`${localePath(locale, "request-quote")}?context=homepage-selection-guide`}>{copy.sendRequirements} <b aria-hidden="true">→</b></Link>
+      </div>
+    </section>
+    <section className="reference-section reference-industries">
+      <div className="shell"><div className="reference-industry-heading"><div><p className="reference-eyebrow">{copy.industryTitle}</p><h2>{copy.industryTitle}</h2></div><Link href={localePath(locale, "industry-solutions")}>{copy.exploreSolution} <b aria-hidden="true">→</b></Link></div>
+        <div className="reference-industry-grid">{industrySlugs.map((slug, index) => <Link key={slug} className="reference-industry-card" href={localePath(locale, `industry-solutions/${slug}`)}>
+          <div className="reference-industry-image"><Image src={`/media/generated/${industryImages[index]}`} alt={copy.industries[index].alt} fill sizes="(max-width: 620px) 100vw, (max-width: 960px) 50vw, 25vw" /></div><h3>{copy.industries[index].title}</h3><p>{copy.industryDescription}</p><span aria-hidden="true">→</span>
+        </Link>)}</div>
+      </div>
+    </section>
+    <section className="reference-final"><div className="shell reference-final-inner"><div><p className="reference-eyebrow">BZMAGNET</p><h2>{copy.finalTitle}</h2><p>{copy.finalText}</p></div><Link className="reference-button reference-button-orange" href={localePath(locale, "request-quote")}>{copy.requestQuote}</Link></div></section>
   </>;
 }
-function SectionTitle({ title }: { title: string }) { return <div className="home-section-title"><h2>{title}</h2><span aria-hidden="true" /></div>; }

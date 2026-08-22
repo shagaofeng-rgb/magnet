@@ -12,6 +12,13 @@ export function proxy(request: NextRequest) {
   const country = request.headers.get("x-vercel-ip-country")?.toUpperCase();
   if (country && blockedCountries.has(country) && !protectedAdminAccess && !protectedSync) return blockedResponse();
   if (pathname === "/") return NextResponse.redirect(new URL("/en", request.url), 308);
+  // Public pages have one slashless canonical URL. Preserve query strings while
+  // normalising accidental trailing slashes in a single redirect.
+  if (pathname.length > 1 && pathname.endsWith("/") && !pathname.startsWith("/api/")) {
+    const canonical = request.nextUrl.clone();
+    canonical.pathname = pathname.slice(0, -1);
+    return NextResponse.redirect(canonical, 308);
+  }
   if (pathname.startsWith("/ar/%D8%A7%D9%84%D9%85%D8%B9%D8%AF%D8%A7%D8%AA/") || pathname.startsWith("/ar/المعدات/")) {
     const rewritten = request.nextUrl.clone();
     rewritten.pathname = pathname.replace(/^\/ar\/(?:%D8%A7%D9%84%D9%85%D8%B9%D8%AF%D8%A7%D8%AA|المعدات)\//, "/ar/equipment/");

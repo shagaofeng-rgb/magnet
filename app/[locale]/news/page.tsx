@@ -1,11 +1,20 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { articlePath } from "@/lib/editorial";
 import { isLocale, localePath } from "@/lib/i18n";
 import { publishedNewsArticles } from "@/lib/news-public";
+import { alternates } from "@/lib/seo";
 import { homeCopy } from "@/lib/site-copy";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+  const { locale } = await params;
+  if (!isLocale(locale)) return {};
+  const copy = homeCopy[locale];
+  return { title: `${copy.newsHeading} | BZMAGNET`, description: copy.industryDescription, alternates: alternates(locale, "news") };
+}
 
 export default async function News({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;

@@ -1,1 +1,8 @@
-import {ListingPage} from "@/components/ListingPage";import {industries} from "@/lib/content";import {isLocale} from "@/lib/i18n";import {pageTitle} from "@/lib/page-copy";import {notFound} from "next/navigation";export default async function Page({params}:{params:Promise<{locale:string}>}){const{locale}=await params;if(!isLocale(locale))notFound();return <ListingPage locale={locale} title={pageTitle("industries",locale)} eyebrow="Industries" items={industries} base="industries"/>}
+import { permanentRedirect } from "next/navigation";
+import { isLocale, localePath } from "@/lib/i18n";
+
+export default async function Industries({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
+  if (!isLocale(locale)) permanentRedirect("/en/industry-solutions");
+  permanentRedirect(localePath(locale, "industry-solutions"));
+}

@@ -1,1 +1,8 @@
-import Link from "next/link";import {StaticPage} from "@/components/StaticPage";import {isLocale,localePath} from "@/lib/i18n";import {pageTitle} from "@/lib/page-copy";import {aboutCopy,staticCopy} from "@/lib/site-copy";import {notFound} from "next/navigation";export default async function Page({params}:{params:Promise<{locale:string}>}){const{locale}=await params;if(!isLocale(locale))notFound();const copy=aboutCopy[locale];return <StaticPage eyebrow={staticCopy[locale].contactEyebrow} title={pageTitle("contact",locale)} intro={staticCopy[locale].supportIntro}><p>{copy.validation}</p><Link className="btn btn-primary" href={localePath(locale,"request-quote")}>{staticCopy[locale].sendDetails}</Link></StaticPage>}
+import { permanentRedirect } from "next/navigation";
+import { isLocale, localePath } from "@/lib/i18n";
+
+export default async function Contact({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
+  if (!isLocale(locale)) permanentRedirect("/en/about-contact");
+  permanentRedirect(localePath(locale, "about-contact"));
+}

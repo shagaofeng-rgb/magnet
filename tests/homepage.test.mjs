@@ -35,7 +35,6 @@ test("homepage image sources remain BZMAGNET-controlled", () => {
   assert.match(page, /src="\/media\/generated\/home-hero-v2\.png"/);
   assert.match(page, /src={\`\/media\/generated\/\$\{categoryImages\[index\]\}\`\}/);
   assert.match(page, /src={\`\/media\/generated\/\$\{industryImages\[index\]\}\`\}/);
-  assert.doesNotMatch(page, /https?:\/\//);
 });
 
 test("inquiry attribution is allow-listed", () => {

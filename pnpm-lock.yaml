@@ -15,8 +15,8 @@ importers:
         specifier: ^9.0.5
         version: 9.0.5
       postgres:
-        specifier: 3.4.7
-        version: 3.4.7
+        specifier: 3.4.9
+        version: 3.4.9
       react:
         specifier: 19.2.6
         version: 19.2.6
@@ -3401,7 +3401,7 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  postgres@3.4.7: {}
+  postgres@3.4.9: {}
 
   prelude-ls@1.2.1: {}
 

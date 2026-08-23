@@ -9,6 +9,7 @@ if (!url) throw new Error("Set ADMIN_DATABASE_URL, NEWS_DATABASE_URL, POSTGRES_U
 const migrations = [
   "20260814_admin_operating_layer.sql",
   "20260823_admin_analytics_quality.sql",
+  "20260823_quarantine_unclassified_analytics.sql",
 ];
 const sql = postgres(url, { prepare: false, max: 1 });
 try {

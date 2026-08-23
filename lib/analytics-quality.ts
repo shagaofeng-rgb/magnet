@@ -17,8 +17,8 @@ export type AnalyticsInput = {
 };
 export type TrafficClass = "valid" | "internal" | "automation" | "test" | "suspicious";
 
-const isUuid = (value: unknown) => typeof value === "string" && /^[a-f0-9-]{36}$/i.test(value);
-const safePath = (value: unknown) => typeof value === "string" && /^\/(?:[a-z0-9_~%./-]|[\u0600-\u06ff])*$/iu.test(value) && value.length <= 240;
+const isUuid = (value: unknown): value is string => typeof value === "string" && /^[a-f0-9-]{36}$/i.test(value);
+const safePath = (value: unknown): value is string => typeof value === "string" && /^\/(?:[a-z0-9_~%./-]|[\u0600-\u06ff])*$/iu.test(value) && value.length <= 240;
 const safeText = (value: unknown, max = 120) => typeof value === "string" && value.trim() ? value.trim().slice(0, max) : null;
 const safeLocale = (value: unknown): value is string => locales.has(String(value));
 

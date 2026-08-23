@@ -13,6 +13,7 @@ export type AnalyticsFilters = {
   from?: string; to?: string; channel?: string; country?: string; traffic?: TrafficView;
   search?: string; page?: number; pageSize?: number; session?: string;
 };
+export type SessionRow = { id: string; anonymous_session_id: string; visitor_key: string | null; visit_number: number | null; is_returning: boolean | null; country_code: string | null; channel: string | null; source: string | null; landing_path: string | null; exit_path: string | null; device_class: string | null; locale: string | null; event_count: number | null; started_at: string; traffic_class: string | null; exclusion_reason: string | null; };
 export type AnalyticsRow = {
   id: string; visitor: string; visitNumber: number | null; returning: boolean; country: string;
   channel: string; source: string; landing: string; exit: string; device: string; locale: string;
@@ -43,10 +44,6 @@ function period(input: AnalyticsFilters) {
   const to = safeDate(input.to, now);
   return from <= to ? { from, to } : { from: to, to: from };
 }
-function trafficSql(input: AnalyticsFilters) {
-  const traffic = selectedTraffic(input.traffic);
-  return traffic === "all" ? null : traffic === "excluded" ? "valid" : "excluded";
-}
 function filterLabel(value: string | undefined) { return value?.trim().slice(0, 80) || ""; }
 
 export async function getAnalyticsDashboard(input: AnalyticsFilters = {}): Promise<AnalyticsDashboard> {
@@ -54,15 +51,14 @@ export async function getAnalyticsDashboard(input: AnalyticsFilters = {}): Promi
   const traffic = selectedTraffic(input.traffic);
   const page = selectedPage(input.page), pageSize = selectedPageSize(input.pageSize), offset = (page - 1) * pageSize;
   const channel = filterLabel(input.channel), country = filterLabel(input.country).toUpperCase(), search = filterLabel(input.search);
-  const excludedClass = trafficSql(input);
-  const unavailable: AnalyticsDashboard = {
+    const unavailable: AnalyticsDashboard = {
     connected: false, from, to, filters: { ...input, traffic, page, pageSize }, lastEventAt: null,
     totals: { views: 0, sessions: 0, visitors: 0, returning: 0, leads: 0, excluded: 0 },
     trend: [], channels: [], countries: [], devices: [], pages: [], visitors: [], totalRows: 0, timeline: [],
   };
   if (!sql) return unavailable;
 
-  const sessionFilter = async <T extends Record<string, unknown>>() => sql<T[]>`
+  const sessionFilter = async () => sql<SessionRow[]>`
     select id::text, anonymous_session_id::text, visitor_key, visit_number, is_returning, country_code, channel, source,
       landing_path, exit_path, device_class, locale, event_count, started_at, traffic_class, exclusion_reason
     from visitor_sessions
@@ -109,7 +105,7 @@ export async function getAnalyticsDashboard(input: AnalyticsFilters = {}): Promi
     const ids = visitorRows.map((row) => row.anonymous_session_id).filter(Boolean);
     const paths = ids.length ? await sql<{ anonymous_session_id: string; path_summary: string }[]>`
       select anonymous_session_id, string_agg(distinct path, ' → ' order by path) as path_summary
-      from analytics_events where site_id = ${SITE_ID} and anonymous_session_id = any(${ids}) group by anonymous_session_id` : [];
+      from analytics_events where site_id = ${SITE_ID} and anonymous_session_id = any(${sql.array(ids as string[])}) group by anonymous_session_id` : [];
     const pathMap = new Map(paths.map((row) => [row.anonymous_session_id, row.path_summary]));
     const activeSession = filterLabel(input.session);
     const timeline = activeSession ? await sql<{ event_name: string; path: string | null; occurred_at: string }[]>`

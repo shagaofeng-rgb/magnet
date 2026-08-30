@@ -26,6 +26,10 @@ test("automatic News is the default and still has an emergency pause", () => {
 test("public delivery verification covers detail, list, News sitemap and RSS", () => {
   const source = read("lib/news-automation.ts");
   for (const token of ["/en/news/industry", "/news-sitemap.xml", "/news/rss.xml", "post-publish-source-panel-missing", "post-publish-brand-boundary-failed"]) assert.ok(source.includes(token));
+  for (const route of ["app/news-sitemap.xml/route.ts", "app/news/rss.xml/route.ts"]) {
+    assert.match(read(route), /dynamic = "force-dynamic"/);
+    assert.match(read(route), /"cache-control": "no-store, max-age=0"/);
+  }
 });
 
 test("Blog cannot be written by the automatic News publisher", () => {

@@ -166,7 +166,7 @@ export async function saveGeneratedArticle(candidateId: string, article: Article
       update news_candidates set status = ${status}, article_id = ${article.id},
         rejection_reasons = ${transaction.json(reasons)},
         candidate = candidate || jsonb_build_object(
-          'status', ${status}, 'articleId', ${article.id},
+          'status', ${status}::text, 'articleId', ${article.id}::text,
           'rejectionReasons', ${transaction.json(reasons)}::jsonb
         ), updated_at = now()
       where id = ${candidateId} and site_id = 'bzmagnet'`;
@@ -181,7 +181,7 @@ export async function setArticleState(article: Article, state: Extract<Candidate
     await transaction`
       update news_candidates set status = ${state}, rejection_reasons = ${transaction.json(reasons)},
         candidate = candidate || jsonb_build_object(
-          'status', ${state}, 'articleId', ${article.id},
+          'status', ${state}::text, 'articleId', ${article.id}::text,
           'rejectionReasons', ${transaction.json(reasons)}::jsonb
         ), updated_at = now()
       where article_id = ${article.id} and site_id = 'bzmagnet'`;

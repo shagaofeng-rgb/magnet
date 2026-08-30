@@ -18,7 +18,7 @@ test("News publication requires an explicit release gate and verified catalog so
 
 test("repeat feed scans preserve the candidate identity and linked article", () => {
   const store = fs.readFileSync("lib/news-store.ts", "utf8");
-  for (const token of ["source_fingerprint", "current.id", "current.article_id", "current.candidate.evidence"]) assert.ok(store.includes(token));
+  for (const token of ["source_fingerprint", "current.id", "current.article_id", "current.candidate.evidence", "articleId: row.article_id", "jsonb_build_object"]) assert.ok(store.includes(token));
 });
 
 test("the automatic writer is BZMAGNET-only and source bounded", () => {

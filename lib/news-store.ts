@@ -33,8 +33,13 @@ export async function getPublishedNewsBySlug(locale: Locale, type: Article["cont
 
 export async function listAutomationCandidates(limit = 100) {
   if (!sql) return [] as NewsCandidate[];
-  const rows = await sql<{ candidate: NewsCandidate }[]>`select candidate from news_candidates order by discovered_at desc limit ${limit}`;
-  return rows.map((row) => row.candidate);
+  const rows = await sql<{ candidate: NewsCandidate; status: CandidateStatus; article_id: string | null }[]>`
+    select candidate, status, article_id::text as article_id
+    from news_candidates
+    where site_id = 'bzmagnet'
+    order by discovered_at desc
+    limit ${limit}`;
+  return rows.map((row) => ({ ...row.candidate, status: row.status, articleId: row.article_id || row.candidate.articleId }));
 }
 
 export async function getLastSuccessfulPublishAt() {
@@ -157,7 +162,14 @@ export async function saveGeneratedArticle(candidateId: string, article: Article
       values (${article.id}, 'bzmagnet', ${candidateId}, ${article.locale}, ${article.contentType}, ${status}, ${article.seo.slug}, ${article.title}, ${article.internal.generationRecordId}, ${transaction.json(article)}, ${article.publishedAt ?? null}, ${article.modifiedAt ?? null})
       on conflict (site_id, slug, locale) do update set status = excluded.status, title = excluded.title, content_fingerprint = excluded.content_fingerprint, article = excluded.article, modified_at = now()
     `;
-    await transaction`update news_candidates set status = ${status}, article_id = ${article.id}, rejection_reasons = ${transaction.json(reasons)}, updated_at = now() where id = ${candidateId} and site_id = 'bzmagnet'`;
+    await transaction`
+      update news_candidates set status = ${status}, article_id = ${article.id},
+        rejection_reasons = ${transaction.json(reasons)},
+        candidate = candidate || jsonb_build_object(
+          'status', ${status}, 'articleId', ${article.id},
+          'rejectionReasons', ${transaction.json(reasons)}::jsonb
+        ), updated_at = now()
+      where id = ${candidateId} and site_id = 'bzmagnet'`;
   });
 }
 
@@ -166,7 +178,13 @@ export async function setArticleState(article: Article, state: Extract<Candidate
   const updated: Article = { ...article, status: state, publishedAt: publishedAt ?? article.publishedAt, modifiedAt: new Date().toISOString(), internal: { ...article.internal, validationOutput: reasons } };
   await sql.begin(async (transaction) => {
     await transaction`update news_articles set status = ${state}, article = ${transaction.json(updated)}, published_at = ${updated.publishedAt ?? null}, modified_at = now() where id = ${article.id} and site_id = 'bzmagnet'`;
-    await transaction`update news_candidates set status = ${state}, rejection_reasons = ${transaction.json(reasons)}, updated_at = now() where article_id = ${article.id} and site_id = 'bzmagnet'`;
+    await transaction`
+      update news_candidates set status = ${state}, rejection_reasons = ${transaction.json(reasons)},
+        candidate = candidate || jsonb_build_object(
+          'status', ${state}, 'articleId', ${article.id},
+          'rejectionReasons', ${transaction.json(reasons)}::jsonb
+        ), updated_at = now()
+      where article_id = ${article.id} and site_id = 'bzmagnet'`;
   });
   return updated;
 }

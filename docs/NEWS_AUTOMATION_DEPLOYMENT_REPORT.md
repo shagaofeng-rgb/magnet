@@ -1,14 +1,15 @@
 # BZMAGNET News automation deployment report
 
-Date: 2026-08-14
+Updated: 2026-08-30
 
 ## Implemented
 
-- Replaced the former no-op editorial Cron endpoints with the single News workflow: review every 12 hours and a daily 09:00 Asia/Shanghai publication window (01:00 UTC).
+- Runs source discovery every six hours and invokes the publisher at three bounded retry windows per day. PostgreSQL still enforces one successful publication per 48 hours.
 - Enforced a database-backed 48-hour `last_successful_publish_at` gate, one-item cap, idempotent source fingerprints, event fingerprints, title/content similarity checks and a database lock.
 - Added a strict state machine: `discovered → fetched → verified → planned → generated → quality_checked → scheduled → publishing → published`, with `needs_review`, `failed` and `archived` failure states.
 - Kept Blog outside all automatic routes, tables and write logic.
-- Added source recency, licence-note, source trust, product-family/media, internal-link, structured content, metadata, canonical, FAQ, schema and post-publish HTTP gate checks.
+- Added direct canonical source evidence verification, an internal source-bound BZMAGNET writer, product/media, internal-link, structured content, metadata, canonical, GEO answer structure, FAQ and brand-boundary checks.
+- The internal writer removes the external generator and manual article-approval dependency. Failed evidence or quality checks still move the candidate to `needs_review` and do not publish it.
 - Added dynamic News lists/detail routes, NewsArticle/FAQ/Breadcrumb schema, primary and Google News sitemaps, Robots sitemap entries and homepage latest-News rendering.
 - Added additive PostgreSQL migration, run logs, locks, candidate/article history, environment template and source policy documents.
 
@@ -16,22 +17,14 @@ Date: 2026-08-14
 
 - `pnpm typecheck`: passed.
 - `pnpm test`: 30 passed.
-- `pnpm lint`: no errors; one pre-existing `SiteHeader.tsx` React Hook warning remains.
+- `pnpm lint`: passed with no errors or warnings.
 - `pnpm build`: passed; public boundary guard passed.
 
-## Production configuration status
+## Production configuration
 
-The BZMAGNET Neon database is connected and the News tables have been initialized. The live deployment runs in `internal_review` mode: it records health checks and supports editorial work in the database without calling external sources, generators, analytics, email, CRM or sitemap-submission providers.
+The BZMAGNET Neon database and verified source catalog are the durable inputs. `NEWS_AUTOMATION_MODE=external_sources` enables the fully automatic path; `paused` is the emergency stop. Automatic publication is enabled unless `NEWS_AUTO_PUBLISH=false`. No external generator secret is required. Blog remains excluded from every automatic write path.
 
-Automatic publication remains intentionally inactive in this mode. It can only be enabled later by explicitly changing `NEWS_AUTOMATION_MODE` to `external_sources` and configuring the following server-only values:
-
-1. `CRON_SECRET`
-2. `NEWS_DATABASE_URL` (then run `pnpm news:migrate` against that private database)
-3. `NEWS_SOURCE_FEEDS` with trusted HTTPS RSS/Atom feeds and licence notes
-4. `NEWS_GENERATOR_WEBHOOK_URL` and `NEWS_GENERATOR_TOKEN` for a structured, source-bounded generator
-5. Optional `GOOGLE_SEARCH_CONSOLE_SITEMAP_WEBHOOK_URL` and token for the approved sitemap submission integration
-
-Until then, Cron calls are authenticated and fail closed: no article is fabricated, no Blog record is written and no News page is published. “Sitemap submitted” is logged as a request, never represented as Google indexing.
+The publisher requires a valid Cron secret, at least one active verified source, complete BZMAGNET product truth records and successful evidence, SEO/GEO, similarity, media and public-delivery checks. “Sitemap submitted” is logged as a request and is never represented as Google indexing.
 
 ## Rollback
 

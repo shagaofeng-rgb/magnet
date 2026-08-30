@@ -1,14 +1,18 @@
 import type { Article } from "./editorial";
 
-export type NewsAutomationMode = "internal_review" | "external_sources";
+export type NewsAutomationMode = "external_sources" | "paused";
 
 /**
- * BZMAGNET defaults to an internal editorial workflow. External collection and
- * generation are opt-in so an unset integration can never trigger a network
- * fetch or fabricate a News article.
+ * BZMAGNET News is fully automatic by default. Production can still be stopped
+ * immediately with NEWS_AUTOMATION_MODE=paused (the legacy internal_review
+ * value is also treated as paused during migration).
  */
 export function newsAutomationMode(): NewsAutomationMode {
-  return process.env.NEWS_AUTOMATION_MODE === "external_sources" ? "external_sources" : "internal_review";
+  return ["paused", "internal_review"].includes(process.env.NEWS_AUTOMATION_MODE || "") ? "paused" : "external_sources";
+}
+
+export function automaticNewsPublishingEnabled() {
+  return newsAutomationMode() === "external_sources" && process.env.NEWS_AUTO_PUBLISH !== "false";
 }
 
 /** One source of truth for News automation. Blog is deliberately absent. */
@@ -28,7 +32,15 @@ export const siteEditorialConfig = {
 } as const;
 
 export type CandidateStatus = "discovered" | "fetched" | "verified" | "planned" | "generated" | "quality_checked" | "scheduled" | "publishing" | "published" | "needs_review" | "failed" | "archived";
-export type NewsCandidate = { id: string; status: CandidateStatus; sourceFingerprint: string; eventFingerprint: string; title: string; summary: string; industry: string; scenario: string; productIds: string[]; sources: Article["sources"]; discoveredAt: string; rejectionReasons: string[]; articleId?: string; sourceId?: string };
+export type NewsEvidence = {
+  canonicalUrl: string;
+  sourceTitle: string;
+  sourceDescription: string;
+  contentHash: string;
+  verifiedAt: string;
+  httpStatus: number;
+};
+export type NewsCandidate = { id: string; status: CandidateStatus; sourceFingerprint: string; eventFingerprint: string; title: string; summary: string; industry: string; scenario: string; productIds: string[]; sources: Article["sources"]; discoveredAt: string; rejectionReasons: string[]; articleId?: string; sourceId?: string; evidence?: NewsEvidence };
 
 export function isAtLeast48Hours(lastSuccessfulPublishAt: string | null | undefined, now = new Date()) {
   return !lastSuccessfulPublishAt || now.getTime() - new Date(lastSuccessfulPublishAt).getTime() >= siteEditorialConfig.minimumPublishIntervalHours * 60 * 60 * 1000;

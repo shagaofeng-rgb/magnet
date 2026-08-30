@@ -7,19 +7,25 @@ const read = (path) => fs.readFileSync(path, "utf8");
 test("only the durable News cron routes are scheduled", () => {
   const config = JSON.parse(read("vercel.json"));
   assert.deepEqual(config.crons.map((job) => job.path), ["/api/cron/news-review", "/api/cron/news-publish"]);
-  assert.equal(config.crons[0].schedule, "0 */12 * * *");
-  assert.equal(config.crons[1].schedule, "0 1 * * *");
+  assert.equal(config.crons[0].schedule, "10 */6 * * *");
+  assert.equal(config.crons[1].schedule, "45 1,3,6 * * *");
 });
 
-test("News automation has a fail-closed durable store, lock and 48-hour gate", () => {
+test("News automation has a fail-closed durable store, internal generator, lock and 48-hour gate", () => {
   const source = read("lib/news-automation.ts");
-  for (const token of ["NEWS_DATABASE_URL", "NEWS_SOURCE_FEEDS", "NEWS_GENERATOR_WEBHOOK_URL", "newsAutomationMode", "Internal-only News mode", "acquireNewsLock", "isAtLeast48Hours", "needs_review", "duplicate-or-similar-content", "approved-product-relation-required"]) assert.match(source, new RegExp(token));
+  for (const token of ["NEWS_DATABASE_URL", "NEWS_SOURCE_FEEDS", "createAutomaticNewsArticle", "verifyCandidateSourceEvidence", "newsAutomationMode", "acquireNewsLock", "isAtLeast48Hours", "needs_review", "duplicate-or-similar-content", "approved-product-relation-required"]) assert.match(source, new RegExp(token));
 });
 
-test("external News collection is opt-in and internal mode is the safe default", () => {
+test("automatic News is the default and still has an emergency pause", () => {
   const workflow = read("lib/editorial-workflow.ts");
-  assert.match(workflow, /NEWS_AUTOMATION_MODE === "external_sources"/);
-  assert.match(workflow, /"internal_review"/);
+  assert.match(workflow, /automaticNewsPublishingEnabled/);
+  assert.match(workflow, /"paused"/);
+  assert.match(workflow, /NEWS_AUTO_PUBLISH !== "false"/);
+});
+
+test("public delivery verification covers detail, list, News sitemap and RSS", () => {
+  const source = read("lib/news-automation.ts");
+  for (const token of ["/en/news/industry", "/news-sitemap.xml", "/news/rss.xml", "post-publish-source-panel-missing", "post-publish-brand-boundary-failed"]) assert.ok(source.includes(token));
 });
 
 test("Blog cannot be written by the automatic News publisher", () => {

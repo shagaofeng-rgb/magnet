@@ -3,13 +3,15 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { articlePath, editorialAssets, normalize, similarity, validateArticle, type Article } from "./editorial";
-import { isAtLeast48Hours, newsAutomationMode, siteEditorialConfig, type NewsCandidate } from "./editorial-workflow";
-import { productPathFor, publicProducts } from "./product-model";
-import { acquireNewsLock, existingNewsForDeduplication, getLastSuccessfulPublishAt, isNewsStoreConfigured, listActiveNewsFeeds, listAutomationCandidates, markNewsSourceUsed, nextScheduledArticle, recordNewsRun, releaseNewsLock, saveGeneratedArticle, setArticleState, upsertCandidate } from "./news-store";
+import { automaticNewsPublishingEnabled, isAtLeast48Hours, newsAutomationMode, siteEditorialConfig, type NewsCandidate } from "./editorial-workflow";
+import { publicProducts } from "./product-model";
+import { acquireNewsLock, existingNewsForDeduplication, getLastSuccessfulPublishAt, isNewsStoreConfigured, listActiveNewsFeeds, listAutomationCandidates, markNewsSourceScanned, markNewsSourceUsed, nextScheduledArticle, recordNewsRun, releaseNewsLock, saveGeneratedArticle, setArticleState, upsertCandidate } from "./news-store";
 import { getNewsReleaseReadiness } from "./news/readiness";
 import { humanizeArticle } from "./news/humanize-content";
-import { validateNewsCitations, validateNewsStructure } from "./news/content-validators";
+import { validateNewsBrandAndGeo, validateNewsCitations, validateNewsStructure } from "./news/content-validators";
 import { runSourceHealthChecks } from "./news/source-health";
+import { createAutomaticNewsArticle } from "./news/automatic-article";
+import { verifyCandidateSourceEvidence } from "./news/source-evidence";
 
 type Feed = { id: string; publisher: string; url: string; highTrust: boolean; region?: string; licenseNote?: string; sourceId?: string };
 type FeedItem = { title: string; url: string; summary: string; publishedAt?: string };
@@ -21,7 +23,7 @@ const safeText = (value: string) => value.replace(/<[^>]*>/g, " ").replace(/&(?:
 const valueBetween = (body: string, tag: string) => safeText(body.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, "i"))?.[1] ?? "");
 
 async function configuredFeeds(): Promise<Feed[]> {
-  const catalogFeeds = await listActiveNewsFeeds();
+  const catalogFeeds = await listActiveNewsFeeds(8);
   if (catalogFeeds.length) return catalogFeeds;
   // A legacy feed list may be used only during an explicitly configured
   // migration. It can never silently replace the versioned source catalog.
@@ -90,39 +92,43 @@ function assertNewsArticle(article: Article, candidate: NewsCandidate, existing:
   if (article.seo.canonicalPath !== articlePath(article)) errors.push("canonical-path");
   errors.push(...validateNewsCitations(article));
   errors.push(...validateNewsStructure(article).errors);
+  errors.push(...validateNewsBrandAndGeo(article));
   if (article.internal.humanizerAudit?.factDeltaDetected) errors.push("humanizer-fact-delta");
   return [...new Set(errors)];
 }
 
 async function requestGeneratedArticle(candidate: NewsCandidate) {
-  const endpoint = process.env.NEWS_GENERATOR_WEBHOOK_URL;
-  const token = process.env.NEWS_GENERATOR_TOKEN;
-  if (!endpoint || !token) return { article: undefined, reason: "news-generator-not-configured" };
   const relation = candidate.productIds[0] ? publicProducts.find((product) => product.id === candidate.productIds[0]) : undefined;
-  const response = await fetch(endpoint, {
-    method: "POST", signal: AbortSignal.timeout(25_000), headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-    body: JSON.stringify({
-      site: "BZMAGNET", kind: "industry_news", locale: "en", candidate,
-      product: relation ? { id: relation.id, title: relation.locale.en.title, href: productPathFor("en", relation), family: relation.familyLabel } : null,
-      categoryHref: relation ? `/en/products/${relation.familyId === "minerals" ? "mineral-bulk-separation" : relation.familyId === "recycling" ? "recycling-metal-sorting" : relation.familyId === "process" ? "process-magnets-filters" : "conveyor-magnetic-separation"}` : null,
-      requirements: { h2Range: [4, 8], faqRange: [3, 5], originalAnalysis: true, noUnsupportedClaims: true, publicSources: true, noBrandComparison: true, noBlogContent: true },
-    }),
-  });
-  if (!response.ok) return { article: undefined, reason: `news-generator-http-${response.status}` };
-  const payload = await response.json() as { article?: Article };
-  return payload.article ? { article: payload.article, reason: undefined } : { article: undefined, reason: "news-generator-invalid-response" };
+  if (!relation) return { article: undefined, reason: "approved-product-relation-required", candidate };
+  const verified = await verifyCandidateSourceEvidence(candidate);
+  if (!verified.evidence) return { article: undefined, reason: verified.reasons.join(","), candidate };
+  const evidenceCandidate: NewsCandidate = {
+    ...candidate,
+    evidence: verified.evidence,
+    sources: candidate.sources.map((source, index) => index === 0 ? { ...source, url: verified.evidence!.canonicalUrl, title: verified.evidence!.sourceTitle, accessedAt: verified.evidence!.verifiedAt } : source),
+  };
+  await upsertCandidate(evidenceCandidate);
+  return { article: createAutomaticNewsArticle(evidenceCandidate, relation), reason: undefined, candidate: evidenceCandidate };
 }
 
 async function verifyPublishedRoute(article: Article) {
-  const url = `${process.env.NEXT_PUBLIC_SITE_ORIGIN || "https://bzmagnet.com"}${articlePath(article)}`;
+  const origin = process.env.NEXT_PUBLIC_SITE_ORIGIN || "https://bzmagnet.com";
+  const url = `${origin}${articlePath(article)}`;
   try {
-    const response = await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(15_000), headers: { "user-agent": "BZMAGNET-News-Verification/1.0" } });
-    if (response.status !== 200) return [`post-publish-http-${response.status}`];
-    const html = await response.text();
-    if (!html.includes(`rel="canonical"`) || !html.includes(article.seo.canonicalPath)) return ["post-publish-canonical-missing"];
-    if (/name="robots" content="[^\"]*noindex/i.test(html)) return ["post-publish-noindex"];
-    if (!html.includes("NewsArticle")) return ["post-publish-schema-missing"];
-    return [];
+    const request = (target: string) => fetch(target, { cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(15_000), headers: { "user-agent": "BZMAGNET-News-Verification/2.0" } });
+    const [detail, list, sitemap, rss] = await Promise.all([request(url), request(`${origin}/en/news/industry`), request(`${origin}/news-sitemap.xml`), request(`${origin}/news/rss.xml`)]);
+    const [html, listHtml, sitemapXml, rssXml] = await Promise.all([detail.text(), list.text(), sitemap.text(), rss.text()]);
+    const errors: string[] = [];
+    if (detail.status !== 200) errors.push(`post-publish-detail-http-${detail.status}`);
+    if (list.status !== 200 || !listHtml.includes(article.seo.slug)) errors.push("post-publish-list-missing");
+    if (sitemap.status !== 200 || !sitemapXml.includes(article.seo.slug)) errors.push("post-publish-news-sitemap-missing");
+    if (rss.status !== 200 || !rssXml.includes(article.seo.slug)) errors.push("post-publish-rss-missing");
+    if (!html.includes(`rel="canonical"`) || !html.includes(article.seo.canonicalPath)) errors.push("post-publish-canonical-missing");
+    if (/name="robots" content="[^"]*noindex/iu.test(html)) errors.push("post-publish-noindex");
+    if (!html.includes("NewsArticle")) errors.push("post-publish-schema-missing");
+    if (!html.includes("Sources &amp; verification")) errors.push("post-publish-source-panel-missing");
+    if (/cowin/iu.test(html)) errors.push("post-publish-brand-boundary-failed");
+    return errors;
   } catch { return ["post-publish-route-unreachable"]; }
 }
 
@@ -142,8 +148,8 @@ export async function reviewNewsCandidates(): Promise<RunResult> {
     // Source validation is safe and useful even while automated publishing is
     // disabled: it only fetches a bounded set of robots files and landing pages.
     const sourceHealth = await runSourceHealthChecks();
-    if (newsAutomationMode() !== "external_sources") {
-      const result = { success: true, action: "review", published: 0, reviewed: 0, needsReview: 0, message: `Internal-only News mode is active; validated ${sourceHealth.attempted} sources and collected no external candidates.` };
+    if (newsAutomationMode() === "paused") {
+      const result = { success: true, action: "review", published: 0, reviewed: 0, needsReview: 0, message: `News automation is paused; validated ${sourceHealth.attempted} sources and collected no external candidates.` };
       await recordNewsRun({ id: crypto.randomUUID(), kind: "review", status: "skipped", startedAt, finishedAt: new Date().toISOString(), details: result });
       return result;
     }
@@ -159,6 +165,7 @@ export async function reviewNewsCandidates(): Promise<RunResult> {
           needsReview += Number(candidate.status === "needs_review");
         }
       } catch { needsReview += 1; }
+      finally { await markNewsSourceScanned(feed.sourceId); }
     }
     const result = { success: true, action: "review", published: 0, reviewed, needsReview, message: `Validated ${sourceHealth.attempted} sources and reviewed ${reviewed} candidates; ${needsReview} require review.` };
     await recordNewsRun({ id: crypto.randomUUID(), kind: "review", status: "succeeded", startedAt, finishedAt: new Date().toISOString(), details: result });
@@ -181,12 +188,13 @@ export async function generateScheduledNews(): Promise<RunResult> {
     candidate.status = "needs_review"; candidate.rejectionReasons.push(generated.reason!); await upsertCandidate(candidate);
     return { success: false, action: "generate", published: 0, reviewed: 1, needsReview: 1, message: "Candidate requires review; no article was published.", reasons: [generated.reason!] };
   }
-  const relation = candidate.productIds[0] ? publicProducts.find((product) => product.id === candidate.productIds[0]) : undefined;
+  const verifiedCandidate = generated.candidate || candidate;
+  const relation = verifiedCandidate.productIds[0] ? publicProducts.find((product) => product.id === verifiedCandidate.productIds[0]) : undefined;
   const humanized = humanizeArticle(generated.article, ["locale", "contentType", "sources", "related", "cta", "seo", "hero"]);
-  const errors = assertNewsArticle(humanized.article, candidate, existing);
-  if (errors.length) { await saveGeneratedArticle(candidate.id, humanized.article, "needs_review", errors); return { success: false, action: "generate", published: 0, reviewed: 1, needsReview: 1, message: "Generated News failed quality gates.", reasons: errors }; }
-  if (!relation) { await saveGeneratedArticle(candidate.id, humanized.article, "needs_review", ["approved-product-relation-required"]); return { success: false, action: "generate", published: 0, reviewed: 1, needsReview: 1, message: "Generated News has no approved product relation.", reasons: ["approved-product-relation-required"] }; }
-  await saveGeneratedArticle(candidate.id, { ...humanized.article, status: "scheduled" }, "scheduled");
+  const errors = assertNewsArticle(humanized.article, verifiedCandidate, existing);
+  if (errors.length) { await saveGeneratedArticle(verifiedCandidate.id, humanized.article, "needs_review", errors); return { success: false, action: "generate", published: 0, reviewed: 1, needsReview: 1, message: "Generated News failed quality gates.", reasons: errors }; }
+  if (!relation) { await saveGeneratedArticle(verifiedCandidate.id, humanized.article, "needs_review", ["approved-product-relation-required"]); return { success: false, action: "generate", published: 0, reviewed: 1, needsReview: 1, message: "Generated News has no approved product relation.", reasons: ["approved-product-relation-required"] }; }
+  await saveGeneratedArticle(verifiedCandidate.id, { ...humanized.article, status: "scheduled" }, "scheduled");
   return { success: true, action: "generate", published: 0, reviewed: 1, needsReview: 0, message: "One verified News article is scheduled for the next eligible publication window." };
 }
 
@@ -195,12 +203,12 @@ export async function publishScheduledNews(): Promise<RunResult> {
   if (!(await acquireNewsLock("bzmagnet:news-publish"))) return { success: true, action: "publish", published: 0, reviewed: 0, needsReview: 0, message: "A publish run is already active." };
   const startedAt = new Date().toISOString();
   try {
-    if (newsAutomationMode() !== "external_sources") {
-      const result = { success: true, action: "publish", published: 0, reviewed: 0, needsReview: 0, message: "Internal-only News mode is active; scheduled publishing is disabled until externally verified sources and a reviewed generator are explicitly configured." };
+    if (newsAutomationMode() === "paused") {
+      const result = { success: true, action: "publish", published: 0, reviewed: 0, needsReview: 0, message: "News automation is paused; no scheduled article was published." };
       await recordNewsRun({ id: crypto.randomUUID(), kind: "publish", status: "skipped", startedAt, finishedAt: new Date().toISOString(), details: result });
       return result;
     }
-    if (process.env.NEWS_AUTO_PUBLISH !== "true") {
+    if (!automaticNewsPublishingEnabled()) {
       const result = { success: true, action: "publish", published: 0, reviewed: 0, needsReview: 0, message: "News auto-publish is disabled; no scheduled article was published." };
       await recordNewsRun({ id: crypto.randomUUID(), kind: "publish", status: "skipped", startedAt, finishedAt: new Date().toISOString(), details: result });
       return result;
@@ -221,7 +229,7 @@ export async function publishScheduledNews(): Promise<RunResult> {
     const errors = !candidate ? ["candidate-not-found"] : assertNewsArticle(article, candidate, existing.filter((item) => item.id !== article.id));
     if (errors.length) { await setArticleState(article, "needs_review", errors); return { success: false, action: "publish", published: 0, reviewed: 0, needsReview: 1, message: "Scheduled News failed final gates and needs review.", reasons: errors }; }
     const published = await setArticleState(article, "published", [], new Date().toISOString());
-    revalidatePath("/sitemap.xml"); revalidatePath("/news-sitemap.xml"); revalidatePath("/en/news"); revalidatePath(articlePath(published));
+    revalidatePath("/sitemap.xml"); revalidatePath("/news-sitemap.xml"); revalidatePath("/news/rss.xml"); revalidatePath("/en/news"); revalidatePath("/en/news/industry"); revalidatePath(articlePath(published));
     const verificationErrors = await verifyPublishedRoute(published);
     if (verificationErrors.length) { await setArticleState(published, "needs_review", verificationErrors); return { success: false, action: "publish", published: 0, reviewed: 0, needsReview: 1, message: "Published route failed post-publication verification and was withdrawn for review.", reasons: verificationErrors }; }
     const submission = await notifySitemapUpdate(published);

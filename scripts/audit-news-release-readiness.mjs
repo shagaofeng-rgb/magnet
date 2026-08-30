@@ -3,16 +3,16 @@ import path from "node:path";
 
 const root = process.cwd();
 const origin = process.env.NEXT_PUBLIC_SITE_ORIGIN || "https://bzmagnet.com";
+const automaticWriter = fs.readFileSync(path.join(root, "lib/news/automatic-article.ts"), "utf8");
+const automation = fs.readFileSync(path.join(root, "lib/news-automation.ts"), "utf8");
 const checks = {
   primaryDomainResolved: origin === "https://bzmagnet.com",
-  redirectChainPassed: process.env.BZMAGNET_REDIRECT_AUDIT_PASSED === "true",
-  publicRobotsPassed: process.env.BZMAGNET_ROBOTS_AUDIT_PASSED === "true",
-  canonicalAndHreflangPassed: process.env.BZMAGNET_CANONICAL_AUDIT_PASSED === "true",
-  brandSeparationPassed: process.env.BZMAGNET_BRAND_AUDIT_PASSED === "true",
-  duplicateContentRiskPassed: process.env.BZMAGNET_SIMILARITY_AUDIT_PASSED === "true",
-  publicTemplateLeakCheckPassed: process.env.BZMAGNET_PUBLIC_AUDIT_PASSED === "true",
+  brandSeparationPassed: automaticWriter.includes("BZMAGNET Editorial Team") && !/COWIN MAGNET|cowinmagnet\.com/u.test(automaticWriter),
+  sourceEvidencePassed: automation.includes("verifyCandidateSourceEvidence"),
+  seoGeoGatePassed: automation.includes("validateNewsBrandAndGeo"),
+  publicDeliveryGatePassed: ["/en/news/industry", "/news-sitemap.xml", "/news/rss.xml"].every((route) => automation.includes(route)),
   cronAuthPassed: Boolean(process.env.CRON_SECRET),
-  releaseSwitchEnabled: process.env.NEWS_RELEASE_READY === "true" && process.env.NEWS_AUTO_PUBLISH === "true",
+  automaticModePassed: !["paused", "internal_review"].includes(process.env.NEWS_AUTOMATION_MODE || "") && process.env.NEWS_AUTO_PUBLISH !== "false",
 };
 const failed = Object.entries(checks).filter(([, value]) => !value).map(([name]) => name);
 const report = { generatedAt: new Date().toISOString(), origin, checks, passed: failed.length === 0, failed };

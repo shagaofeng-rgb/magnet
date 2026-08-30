@@ -14,20 +14,13 @@ npm run news:sources:import -- --file .\private\sources\bzmagnet-sources-YYYY-MM
 npm run news:sources:import -- --file .\private\sources\bzmagnet-sources-YYYY-MM-DD.md --name "YYYY-MM-DD supplier list" --activate --confirm-replace
 ```
 
-## Enable automatic News publication
+## Automatic News publication
 
-Set the following only after deployment audits, source verification, generator integration and a no-publish dry run have passed:
+The deployed V2 workflow is fully automatic and does not wait for per-article approval. Production uses:
 
 ```ini
 NEWS_AUTOMATION_MODE=external_sources
 NEWS_AUTO_PUBLISH=true
-NEWS_RELEASE_READY=true
-BZMAGNET_REDIRECT_AUDIT_PASSED=true
-BZMAGNET_ROBOTS_AUDIT_PASSED=true
-BZMAGNET_CANONICAL_AUDIT_PASSED=true
-BZMAGNET_BRAND_AUDIT_PASSED=true
-BZMAGNET_SIMILARITY_AUDIT_PASSED=true
-BZMAGNET_PUBLIC_AUDIT_PASSED=true
 ```
 
-The publish task remains limited by the durable 48-hour successful-publication gate. Blog is not an automated output type.
+Use `NEWS_AUTOMATION_MODE=paused` or `NEWS_AUTO_PUBLISH=false` as an emergency stop. The publish task remains limited by the durable 48-hour successful-publication gate. Blog is not an automated output type, and a failed source or quality gate is never overridden to satisfy the schedule.

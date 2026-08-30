@@ -57,7 +57,7 @@ export async function listActiveNewsFeeds(limit = 24): Promise<ActiveNewsFeed[]>
         and source.feed_url is not null
         and source.tier <> 'discovery-only' and source.discovery_methods ? 'rss'
         and (source.last_used_at is null or source.last_used_at < now() - interval '14 days')
-      order by source.last_used_at asc nulls first, source.source_ordinal asc
+      order by source.last_checked_at asc nulls first, source.last_used_at asc nulls first, source.source_ordinal asc
       limit ${limit}`;
     return rows.map((row) => ({ id: row.id, publisher: row.name, url: /^https:\/\//i.test(row.url) ? row.url : `https://${row.url}`, highTrust: row.tier === "A" || row.tier === "B", licenseNote: "Source is approved for factual citation; external imagery is not imported.", sourceId: row.id }));
   } catch { return []; }
@@ -116,11 +116,33 @@ export async function markNewsSourceUsed(sourceId?: string) {
   await sql`update news_sources set last_used_at = now(), use_count = use_count + 1, updated_at = now() where id = ${sourceId}::uuid and site_id = 'bzmagnet'`;
 }
 
+export async function markNewsSourceScanned(sourceId?: string) {
+  if (!sql || !sourceId) return;
+  await sql`update news_sources set last_checked_at = now(), updated_at = now() where id = ${sourceId}::uuid and site_id = 'bzmagnet'`;
+}
+
 export async function upsertCandidate(candidate: NewsCandidate) {
   if (!sql) throw new Error("NEWS_DATABASE_URL is not configured");
+  const existing = await sql<{ id: string; status: CandidateStatus; article_id: string | null; candidate: NewsCandidate }[]>`
+    select id::text as id, status, article_id::text as article_id, candidate
+    from news_candidates
+    where site_id = 'bzmagnet' and source_fingerprint = ${candidate.sourceFingerprint}
+    limit 1`;
+  const current = existing[0];
+  // Feed scans construct a fresh UUID. Once the source fingerprint exists, keep
+  // the database identity and any linked article so a later scan cannot detach
+  // or republish an already scheduled/published candidate.
+  const storedCandidate: NewsCandidate = current ? {
+    ...current.candidate,
+    ...candidate,
+    id: current.id,
+    status: current.article_id ? current.status : candidate.status,
+    articleId: current.article_id || candidate.articleId,
+    evidence: candidate.evidence || current.candidate.evidence,
+  } : candidate;
   await sql`
     insert into news_candidates (id, site_id, status, source_fingerprint, event_fingerprint, discovered_at, candidate, rejection_reasons)
-    values (${candidate.id}, 'bzmagnet', ${candidate.status}, ${candidate.sourceFingerprint}, ${candidate.eventFingerprint}, ${candidate.discoveredAt}, ${sql.json(candidate)}, ${sql.json(candidate.rejectionReasons)})
+    values (${storedCandidate.id}, 'bzmagnet', ${storedCandidate.status}, ${storedCandidate.sourceFingerprint}, ${storedCandidate.eventFingerprint}, ${storedCandidate.discoveredAt}, ${sql.json(storedCandidate)}, ${sql.json(storedCandidate.rejectionReasons)})
     on conflict (site_id, source_fingerprint) do update set
       status = excluded.status, event_fingerprint = excluded.event_fingerprint, candidate = excluded.candidate,
       rejection_reasons = excluded.rejection_reasons, updated_at = now()

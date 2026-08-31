@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   const { locale } = await params;
   if (!isLocale(locale)) return {};
   const copy = homeCopy[locale];
-  return { title: `${copy.industryTitle} | BZMAGNET`, description: copy.industryDescription, alternates: alternates(locale, "industry-solutions") };
+  return { title: { absolute: `${copy.industryTitle} | BZMAGNET` }, description: copy.industryDescription, alternates: alternates(locale, "industry-solutions") };
 }
 
 export default async function IndustrySolutions({ params }: { params: Promise<{ locale: string }> }) {

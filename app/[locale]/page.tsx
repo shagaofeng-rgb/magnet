@@ -10,14 +10,14 @@ import { alternates } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-const industryImages = ["industry-mining.png", "industry-cement.png", "industry-recycling.png", "industry-coal.png"];
+const industryImages = ["industry-mining.webp", "industry-cement.webp", "industry-recycling.webp", "industry-coal.webp"];
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
   if (!isLocale(locale)) return {};
   const copy = homeCopy[locale];
   return {
-    title: copy.metaTitle,
+    title: { absolute: copy.metaTitle },
     description: copy.metaDescription,
     alternates: alternates(locale),
     openGraph: {
@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
       url: `${origin}/${locale}`,
       siteName: "BZMAGNET",
       type: "website",
-      images: [{ url: `${origin}/media/generated/home-hero-v2.png`, width: 1536, height: 1024, alt: copy.heroAlt }],
+      images: [{ url: `${origin}/media/generated/home-hero-v2.webp`, width: 1672, height: 941, alt: copy.heroAlt }],
     },
   };
 }
@@ -36,9 +36,16 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
   if (!isLocale(locale)) notFound();
   const copy = homeCopy[locale];
   const selectionSteps = copy.checklist.slice(0, 4);
+  const publicEmail = process.env.BZMAGNET_PUBLIC_EMAIL;
+  const publicPhone = process.env.BZMAGNET_PUBLIC_PHONE;
+  const organization = {
+    "@context": "https://schema.org", "@type": "Organization", "@id": `${origin}/#organization`, name: "BZMAGNET", url: origin,
+    description: copy.metaDescription, logo: { "@type": "ImageObject", url: `${origin}/icon.png`, width: 256, height: 256 },
+    ...(publicEmail ? { email: publicEmail } : {}), ...(publicPhone ? { telephone: publicPhone } : {}),
+  };
   const schemas = [
-    { "@context": "https://schema.org", "@type": "Organization", name: "BZMAGNET", url: origin },
-    { "@context": "https://schema.org", "@type": "WebSite", name: "BZMAGNET", url: origin, inLanguage: locale },
+    organization,
+    { "@context": "https://schema.org", "@type": "WebSite", "@id": `${origin}/#website`, name: "BZMAGNET", url: origin, inLanguage: locale, publisher: { "@id": `${origin}/#organization` } },
     { "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: copy.home ?? "BZMAGNET", url: `${origin}/${locale}` }] },
   ];
 
@@ -51,7 +58,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
           <h1>{copy.heroTitle}</h1><p className="reference-lead">{copy.heroBody}</p>
           <div className="reference-actions"><Link className="reference-button reference-button-orange" href={localePath(locale, "products")}>{copy.exploreProducts}</Link><Link className="reference-button reference-button-outline" href={localePath(locale, "request-quote")}>{copy.requestQuote}</Link></div>
         </div>
-        <div className="reference-hero-media"><Image src="/media/generated/home-hero-v2.png" alt={copy.heroAlt} fill priority sizes="(max-width: 940px) 100vw, 53vw" /></div>
+        <div className="reference-hero-media"><Image src="/media/generated/home-hero-v2.webp" alt={copy.heroAlt} fill priority sizes="(max-width: 940px) 100vw, 53vw" /></div>
       </div>
     </section>
     <section className="reference-section reference-families">

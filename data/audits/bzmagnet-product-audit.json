@@ -1,0 +1,806 @@
+{
+  "generatedAt": "2026-08-31T04:37:37.771Z",
+  "sourceTotal": 88,
+  "imported": 88,
+  "held": 0,
+  "records": [
+    {
+      "id": "a978ccc9-0bc7-4625-acf9-1fa5ee760114",
+      "name": "RCYD permanent magnet self dumping iron remover",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-a978ccc9",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "23abb78b-db69-45bb-a00a-7ef1e67b48fb",
+      "name": "RCDD self cooling self dumping electromagnetic iron remover",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-23abb78b",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "68d6e30a-0022-4c45-a2a6-3cdf823983cf",
+      "name": "RCYB permanent magnet manual iron remover",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-68d6e30a",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "a1b5e483-7a55-4ba8-acf5-cb9e0add8682",
+      "name": "RCDB self cooling plate electromagnetic iron remover",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-a1b5e483",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "a60ad150-fa6d-4c5c-ac6f-6a48cc861cf5",
+      "name": "Belt High Gradient Magnetic Separator",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-a60ad150",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "ac22eefa-8219-4708-ad11-1b96bec51c9d",
+      "name": "Disc Magnetic Separator for Tailing",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-ac22eefa",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "a8c67e5b-a767-4b6a-a527-f2ad25e92607",
+      "name": "Dry Drum Magnetic Separator",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-a8c67e5b",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "709a4d83-6b24-46d7-a07f-6a29cf643543",
+      "name": "Wet Drum Magnetic Separator",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-709a4d83",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "cbbcf51c-30c3-45fc-a105-50650197fa89",
+      "name": "CBZ rotary automatic magnetic separator",
+      "family": "Process Magnets & Filters",
+      "status": "published",
+      "currentUrl": "/en/products/process-magnets-filters/industrial-equipment-cbbcf51c",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "016ac24b-7beb-4f1f-af70-54e327bd3f85",
+      "name": "CGB rotary semi-automatic magnetic separator",
+      "family": "Process Magnets & Filters",
+      "status": "published",
+      "currentUrl": "/en/products/process-magnets-filters/industrial-equipment-016ac24b",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "d653a8f9-c40c-4dca-a969-98c2f58b4beb",
+      "name": "CQZ fully automatic online magnetic separator",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-d653a8f9",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "f6636b3d-5c19-4b50-aedc-f2655ae24496",
+      "name": "CTN wet full countercurrent magnetic separator",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-f6636b3d",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "73b7a041-1e24-49a5-af03-3ca1fa9e3555",
+      "name": "CTS wet co current magnetic separator",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-73b7a041",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "a5f19acb-d657-4139-a45b-0a595b795bec",
+      "name": "CXJ drum automatic magnetic separator",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-a5f19acb",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "a1d49595-0917-4d27-a891-f926dc9bc597",
+      "name": "DCZ dry fully automatic magnetic separator",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-a1d49595",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "4bdb0b3b-79f7-4734-a906-5708d7917359",
+      "name": "GLS integral channel metal separator",
+      "family": "Recycling & Metal Sorting",
+      "status": "published",
+      "currentUrl": "/en/products/recycling-metal-sorting/industrial-equipment-4bdb0b3b",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "92a41c49-be8a-4bf1-aa1a-6624c988d8c9",
+      "name": "CGT super strong full magnetic drum",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-92a41c49",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "449b3128-f0b5-471d-a67c-06046423929d",
+      "name": "CTZ midfield strong semi magnetic drum",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-449b3128",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "4b6fdbe3-5d9d-4f5f-a5a5-d033bb033009",
+      "name": "RCDA air-cooled electromagnetic iron remover",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-4b6fdbe3",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "beae0265-1b19-465b-aae6-f40fa75a7439",
+      "name": "RCDC air-cooled self dumping electromagnetic iron remover",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-beae0265",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "743db59c-3db2-4395-ae21-fe730547127d",
+      "name": "RCDE oil cooled electromagnetic iron remover",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-743db59c",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "78c9ee51-54af-438d-abea-fc491c4ca549",
+      "name": "RCDF oil cooled self dumping electromagnetic iron remover",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-78c9ee51",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "0d967d20-95b3-4849-afc9-fefb9217cc6c",
+      "name": "RCDFJ forced oil circulation self dumping electromagnetic iron remover",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-0d967d20",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "af50e0fa-577a-40fe-a7d1-db6e99a20049",
+      "name": "RCPS self dumping disc permanent magnet iron remover",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-af50e0fa",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "fbba6de7-8d2d-4bf2-a26e-3ea19ea04001",
+      "name": "RCT fully magnetic drum",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-fbba6de7",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "e3e57836-92fe-4632-a1f4-a1a82fd7b392",
+      "name": "RCYA inclined pipeline permanent magnet iron remover",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-e3e57836",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "933b6654-f0df-4a32-a71c-7c341df9714d",
+      "name": "RCYDII permanent magnet self dumping iron remover",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-933b6654",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "7ac51cef-f940-48a0-a22e-9febeb6ef8f1",
+      "name": "RCYE permanent magnet self dumping iron remover",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-7ac51cef",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "8a9388ea-6ae6-4cc6-ae53-c35a64a77d0d",
+      "name": "RCYF vertical pipeline permanent magnet iron remover",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-8a9388ea",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "0cc4f57b-5c5b-49e8-af9b-184e4ba97d13",
+      "name": "RCYG pipeline self dumping permanent magnet iron remover",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-0cc4f57b",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "c078137b-d943-44f0-a76d-7ce18ce4be67",
+      "name": "RCYP permanent magnet manual self dumping iron remover",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-c078137b",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "0ec866d0-29fb-4afa-a768-d69bc122da58",
+      "name": "RCYZ vertical pipeline permanent magnet iron remover",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-0ec866d0",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "143120b8-6a90-4ac4-a05d-50a3f701fd8a",
+      "name": "CQZ fully automatic online magnetic separation",
+      "family": "Recycling & Metal Sorting",
+      "status": "published",
+      "currentUrl": "/en/products/recycling-metal-sorting/industrial-equipment-143120b8",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "92192b40-41cd-43ac-a685-281833c89ba0",
+      "name": "CTB wet semi countercurrent magnetic separator",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-92192b40",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "698b8e6f-afa2-41f9-a5e6-5cb94cd44de2",
+      "name": "DCX wet fully automatic magnetic separator",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-698b8e6f",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "92a9a834-1a89-450c-a60e-59343c4cd2db",
+      "name": "DCZ dry fully automatic magnetic separation",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-92a9a834",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "f74e6f0e-d023-4ca4-abfb-c6aa45cc25d9",
+      "name": "GTC wet plate magnetic separator",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-f74e6f0e",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "f4e918ba-4403-45fa-a9b3-caa83412d86c",
+      "name": "HJLH wet vertical ring high gradient magnetic separator",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-f4e918ba",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "328684b2-ba1f-4b4b-a951-601005361b9a",
+      "name": "HJPC wet disc magnetic separation",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-328684b2",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "85319896-5669-44e4-aca1-b6b3921ed532",
+      "name": "CLT magnetic desliming tank",
+      "family": "Recycling & Metal Sorting",
+      "status": "published",
+      "currentUrl": "/en/products/recycling-metal-sorting/industrial-equipment-85319896",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "ac68f8d3-8c11-4e71-aede-19eec8e33146",
+      "name": "CTB semi countercurrent wet selection machine",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-ac68f8d3",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "70ac8258-bb08-41ec-a85f-fcd32dd079e4",
+      "name": "CTDG permanent magnet bulk dry magnetic separator",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-70ac8258",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "7fa0850a-97a6-4c53-a40a-e231ed9441a3",
+      "name": "CTN full countercurrent wet magnetic separator",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-7fa0850a",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "1dac05df-3739-4b80-af4f-470c105ad7e4",
+      "name": "CTS downstream wet pre selection machine",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-1dac05df",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "b1301a6e-4287-4779-a6dd-6090c413d219",
+      "name": "CTZS upward suction magnetic separator",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-b1301a6e",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "e919e192-8d50-41b5-ac59-deba17543af0",
+      "name": "HCG dry pre selection machine",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-e919e192",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "eb1c9190-471c-4b46-a139-9e5a8f073404",
+      "name": "HJLH vertical ring high gradient magnetic separation",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-eb1c9190",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "a5cbae2c-5565-41e1-aaa6-baeab5b6e513",
+      "name": "LJK magnetic ore special iron remover",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-a5cbae2c",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "0de9f29c-56e6-435e-a10f-775526c63a9f",
+      "name": "NCT concentrated magnetic separator",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-0de9f29c",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "2b9e1b8c-1204-401c-ae20-c41fc1772f05",
+      "name": "WBC semi magnetic tailings recovery machine",
+      "family": "Recycling & Metal Sorting",
+      "status": "published",
+      "currentUrl": "/en/products/recycling-metal-sorting/industrial-equipment-2b9e1b8c",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "cbcfb06e-144d-4f81-a28c-2a5d6ee036b4",
+      "name": "CTN specialized magnetic separator for coal washing",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-cbcfb06e",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "a0562227-3b3a-4216-a389-0372cd5621f2",
+      "name": "HMDN coal washing special magnetic separator",
+      "family": "Mineral & Bulk Separation",
+      "status": "published",
+      "currentUrl": "/en/products/mineral-bulk-separation/industrial-equipment-a0562227",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "9e413997-9a94-4bf3-aab8-edbedbd0da09",
+      "name": "Suspended Permanent Magnetic Separator",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-9e413997",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "13c679d2-3212-4418-a120-168f244c83d8",
+      "name": "Suspended Electromagnetic Conveyor Belt Separator",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-13c679d2",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "bc6b6296-ed67-473e-a013-90d6d0400e59",
+      "name": "DLS window metal detector",
+      "family": "Recycling & Metal Sorting",
+      "status": "published",
+      "currentUrl": "/en/products/recycling-metal-sorting/industrial-equipment-bc6b6296",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "906fc87c-07d3-43bc-adc0-3b0dbbf7d82f",
+      "name": "GJT window metal detector",
+      "family": "Recycling & Metal Sorting",
+      "status": "published",
+      "currentUrl": "/en/products/recycling-metal-sorting/industrial-equipment-906fc87c",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "13b11dfd-88c2-40cf-ab4b-90eb07ae6fd6",
+      "name": "HECP eddy current metal sorting machine",
+      "family": "Recycling & Metal Sorting",
+      "status": "published",
+      "currentUrl": "/en/products/recycling-metal-sorting/industrial-equipment-13b11dfd",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "8775772b-06b0-49aa-af53-c375cd568d6e",
+      "name": "HECS eddy current metal sorting machine",
+      "family": "Recycling & Metal Sorting",
+      "status": "published",
+      "currentUrl": "/en/products/recycling-metal-sorting/industrial-equipment-8775772b",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "fc4f9e43-02c5-4899-a728-f4da3fbae49f",
+      "name": "Drum Magnet",
+      "family": "Recycling & Metal Sorting",
+      "status": "published",
+      "currentUrl": "/en/products/recycling-metal-sorting/industrial-equipment-fc4f9e43",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "357c6bfd-be51-47bd-a005-557490d7015d",
+      "name": "Eccentric Eddy Current Separator",
+      "family": "Recycling & Metal Sorting",
+      "status": "published",
+      "currentUrl": "/en/products/recycling-metal-sorting/industrial-equipment-357c6bfd",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "28996333-7faf-4a8e-a37c-318a9172da64",
+      "name": "Electromagnet Separator",
+      "family": "Recycling & Metal Sorting",
+      "status": "published",
+      "currentUrl": "/en/products/recycling-metal-sorting/industrial-equipment-28996333",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "6b179fe0-6c9f-44e1-a83a-0ff612367cf7",
+      "name": "Magnetic Head Pulley",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-6b179fe0",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "24c3ec99-ab6e-46e9-a740-65c2fb482f85",
+      "name": "Permanent Overband Magnetic Separator",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-24c3ec99",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "f53aac88-6f97-44a6-a457-0589554331ce",
+      "name": "Stainless Steel Separation Conveyor",
+      "family": "Recycling & Metal Sorting",
+      "status": "published",
+      "currentUrl": "/en/products/recycling-metal-sorting/industrial-equipment-f53aac88",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "9cf9671b-8568-43c2-a880-6502d204752d",
+      "name": "CBS drawer magnetic filter",
+      "family": "Process Magnets & Filters",
+      "status": "published",
+      "currentUrl": "/en/products/process-magnets-filters/industrial-equipment-9cf9671b",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "aa446d45-bfc3-4bf1-a546-0a4f6235a293",
+      "name": "CLC wet slot magnetic filter",
+      "family": "Process Magnets & Filters",
+      "status": "published",
+      "currentUrl": "/en/products/process-magnets-filters/industrial-equipment-aa446d45",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "c43257f0-c43d-4f27-a890-e2d1c58e0cac",
+      "name": "CTQ roller automatic magnetic separator",
+      "family": "Process Magnets & Filters",
+      "status": "published",
+      "currentUrl": "/en/products/process-magnets-filters/industrial-equipment-c43257f0",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "ac4e150b-c51f-4bc4-a403-d4b3a32f0e1f",
+      "name": "CYG wet pipeline magnetic filter",
+      "family": "Process Magnets & Filters",
+      "status": "published",
+      "currentUrl": "/en/products/process-magnets-filters/industrial-equipment-ac4e150b",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "89a33f16-1966-4719-a009-ad8c18868569",
+      "name": "RCYZ pipeline magnetic filter",
+      "family": "Process Magnets & Filters",
+      "status": "published",
+      "currentUrl": "/en/products/process-magnets-filters/industrial-equipment-89a33f16",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "ef020ba8-be66-44a9-aca4-6def746c62ab",
+      "name": "CLC slot magnetic filter",
+      "family": "Process Magnets & Filters",
+      "status": "published",
+      "currentUrl": "/en/products/process-magnets-filters/industrial-equipment-ef020ba8",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "a3dd5325-f93f-4879-abf5-f4ab5ede6436",
+      "name": "DHD roller automatic magnetic separator",
+      "family": "Process Magnets & Filters",
+      "status": "published",
+      "currentUrl": "/en/products/process-magnets-filters/industrial-equipment-a3dd5325",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "f6186db4-d131-4c8a-aecc-9175048c918f",
+      "name": "DHJ strong roller automatic magnetic separator",
+      "family": "Process Magnets & Filters",
+      "status": "published",
+      "currentUrl": "/en/products/process-magnets-filters/industrial-equipment-f6186db4",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "6b8e51cd-cf76-40a5-a2fc-874d466a87cc",
+      "name": "QCG wet roller magnetic separator",
+      "family": "Process Magnets & Filters",
+      "status": "published",
+      "currentUrl": "/en/products/process-magnets-filters/industrial-equipment-6b8e51cd",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "5b222e0b-1a05-4687-ac23-7ea12e6edc80",
+      "name": "Drawer Magnet",
+      "family": "Process Magnets & Filters",
+      "status": "published",
+      "currentUrl": "/en/products/process-magnets-filters/industrial-equipment-5b222e0b",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "9294d555-9ae9-4040-ae91-70d9f39ac0c9",
+      "name": "Hump Magnet",
+      "family": "Process Magnets & Filters",
+      "status": "published",
+      "currentUrl": "/en/products/process-magnets-filters/industrial-equipment-9294d555",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "e008e944-4bc3-48b6-a13b-86d614954027",
+      "name": "Magnetic Grid",
+      "family": "Process Magnets & Filters",
+      "status": "published",
+      "currentUrl": "/en/products/process-magnets-filters/industrial-equipment-e008e944",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "60f21cc6-0db1-413d-a44a-3c9076aa6fea",
+      "name": "Magnetic Rod",
+      "family": "Process Magnets & Filters",
+      "status": "published",
+      "currentUrl": "/en/products/process-magnets-filters/industrial-equipment-60f21cc6",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "489e638a-8be4-4df2-aa64-c81564be24f4",
+      "name": "Magnetic Trap",
+      "family": "Process Magnets & Filters",
+      "status": "published",
+      "currentUrl": "/en/products/process-magnets-filters/industrial-equipment-489e638a",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "7ef700f6-8a5a-4ec2-aff7-26e4922147d5",
+      "name": "Rotary Pipe Magnet",
+      "family": "Process Magnets & Filters",
+      "status": "published",
+      "currentUrl": "/en/products/process-magnets-filters/industrial-equipment-7ef700f6",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "26f6371b-2624-4e69-a818-70c95de0321e",
+      "name": "Strong 6000-16000 Gauss Iron Absorbing Permanent Filter Bar Magnetic Neodymium Rod",
+      "family": "Process Magnets & Filters",
+      "status": "published",
+      "currentUrl": "/en/products/process-magnets-filters/industrial-equipment-26f6371b",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "d39a0e50-19f3-4c8a-afda-5fa4ac8944f1",
+      "name": "High Frequency Screen",
+      "family": "Recycling & Metal Sorting",
+      "status": "published",
+      "currentUrl": "/en/products/recycling-metal-sorting/industrial-equipment-d39a0e50",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "636afd01-05be-4c4a-ae58-0d84e1e01add",
+      "name": "KGLA series rectifier control box",
+      "family": "Recycling & Metal Sorting",
+      "status": "published",
+      "currentUrl": "/en/products/recycling-metal-sorting/industrial-equipment-636afd01",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "0232bad9-2e13-4489-adc3-f4cd55c6d08a",
+      "name": "KXB mining explosion-proof electromagnetic iron remover control box",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-0232bad9",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "9bbb2274-6e6b-4d93-a414-1658ccc77c8f",
+      "name": "QJZ mining explosion-proof permanent magnet iron remover control box",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-9bbb2274",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "1571b961-ffcd-4bcc-a273-a4e91f8dbfb2",
+      "name": "RBCDB explosion-proof disc electromagnetic iron remover",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-1571b961",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "a4750b43-d091-427f-a310-b824739ba5ec",
+      "name": "RBCDD explosion-proof electromagnetic self dumping iron remover",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-a4750b43",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "fa3d79f3-a9fe-4ed9-a78a-7e18a667f56e",
+      "name": "RBCYD explosion-proof permanent magnet self dumping iron remover",
+      "family": "Conveyor Magnetic Separators",
+      "status": "published",
+      "currentUrl": "/en/products/conveyor-magnetic-separation/industrial-equipment-fa3d79f3",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    },
+    {
+      "id": "3cab1f7f-961a-4099-a686-3606d2681c79",
+      "name": "Round Electromagnetic Lifting Magnet",
+      "family": "Recycling & Metal Sorting",
+      "status": "published",
+      "currentUrl": "/en/products/recycling-metal-sorting/industrial-equipment-3cab1f7f",
+      "missingFields": [],
+      "dataConfidence": "verified"
+    }
+  ],
+  "summary": {
+    "total": 88,
+    "verified": 88,
+    "partial": 0,
+    "outOfScope": 0
+  }
+}

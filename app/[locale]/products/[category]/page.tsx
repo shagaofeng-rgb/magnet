@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   const familyIndex = families.findIndex((item) => item.key === family.key);
   const copy = homeCopy[locale];
   const title = copy.categories[familyIndex].title;
-  return { title: `${title} | BZMAGNET`, description: copy.categories[familyIndex].description, alternates: alternates(locale, `products/${family.slug}`) };
+  return { title: { absolute: `${title} | BZMAGNET` }, description: copy.categories[familyIndex].description, alternates: alternates(locale, `products/${family.slug}`) };
 }
 
 export default async function Family({ params }: { params: Promise<{ locale: string; category: string }> }) {

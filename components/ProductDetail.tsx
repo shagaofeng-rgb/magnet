@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { JsonLd } from "./JsonLd";
 import { type Locale, localePath, origin } from "@/lib/i18n";
-import { type ProductRecord, productPathFor, visibleRows } from "@/lib/product-model";
+import { type ProductRecord, productCategoryPath, productPathFor, visibleRows } from "@/lib/product-model";
 import { relatedArticleLinks } from "@/lib/product-content-relations";
 
 type DetailCopy = {
@@ -86,9 +86,9 @@ export function ProductDetail({ product, locale }: { product: ProductRecord; loc
   const publicPath = productPathFor(locale, product);
   const quote = `${localePath(locale, "request-quote")}?product=${encodeURIComponent(product.id)}&product_name=${encodeURIComponent(localized.title)}&locale=${locale}&source=${encodeURIComponent(publicPath)}&context=product-detail`;
   const crumbs = [
-    { name: t.home, url: `${origin}/${locale}/` },
+    { name: t.home, url: `${origin}/${locale}` },
     { name: t.products, url: `${origin}/${locale}/products` },
-    { name: familyName, url: `${origin}/${locale}/products` },
+    { name: familyName, url: `${origin}/${locale}/products/${productCategoryPath(product.familyId)}` },
     { name: localized.title, url: `${origin}${publicPath}` },
   ];
 

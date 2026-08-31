@@ -32,7 +32,7 @@ test("generated media records are approved and owned", () => {
 });
 
 test("homepage image sources remain BZMAGNET-controlled", () => {
-  assert.match(page, /src="\/media\/generated\/home-hero-v2\.png"/);
+  assert.match(page, /src="\/media\/generated\/home-hero-v2\.webp"/);
   assert.match(page, /src={\`\/media\/generated\/\$\{categoryImages\[index\]\}\`\}/);
   assert.match(page, /src={\`\/media\/generated\/\$\{industryImages\[index\]\}\`\}/);
 });

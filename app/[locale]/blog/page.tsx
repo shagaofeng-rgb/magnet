@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   const { locale } = await params;
   if (!isLocale(locale)) return {};
   const copy = homeCopy[locale];
-  return { title: `${copy.blogHeading} | BZMAGNET`, description: copy.heroBody, alternates: alternates(locale, "blog") };
+  return { title: { absolute: `${copy.blogHeading} | BZMAGNET` }, description: copy.heroBody, alternates: alternates(locale, "blog") };
 }
 
 export default async function Blog({ params }: { params: Promise<{ locale: string }> }) {
@@ -23,7 +23,7 @@ export default async function Blog({ params }: { params: Promise<{ locale: strin
     <section className="editorial-hero"><div className="shell"><span className="eyebrow">BZMAGNET</span><h1>{copy.blogHeading}</h1><p>{copy.heroBody}</p></div></section>
     <div className="shell topic-grid">{copy.categories.map((topic) => <div key={topic.title}>{topic.title}</div>)}</div>
     <section className="editorial-section"><div className="shell">
-      {featured ? <Link className="featured-guide" href={articlePath(featured)}><Image src={editorialAssets.guideHub.src} alt={editorialAssets.guideHub.alt} width={768} height={512}/><div><span>BLOG</span><h2>{featured.title}</h2><p>{featured.summary}</p><strong>{copy.viewBlog} →</strong></div></Link> : <div className="empty-state">{copy.noPublished}</div>}
+      {featured ? <Link className="featured-guide" href={articlePath(featured)}><Image src={editorialAssets.guideHub.src} alt={editorialAssets.guideHub.alt} width={768} height={512}/><div><span>{copy.blogHeading}</span><h2>{featured.title}</h2><p>{featured.summary}</p><strong>{copy.viewBlog} →</strong></div></Link> : <div className="empty-state">{copy.noPublished}</div>}
       <div className="inline-cta"><span>{copy.checklistNote}</span><Link href={localePath(locale, "request-quote")}>{copy.requestQuote}</Link></div>
     </div></section>
   </>;

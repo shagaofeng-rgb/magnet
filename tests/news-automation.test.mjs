@@ -4,11 +4,12 @@ import fs from "node:fs";
 
 const read = (path) => fs.readFileSync(path, "utf8");
 
-test("only the durable News cron routes are scheduled", () => {
+test("only durable publishing and search-data cron routes are scheduled", () => {
   const config = JSON.parse(read("vercel.json"));
-  assert.deepEqual(config.crons.map((job) => job.path), ["/api/cron/news-review", "/api/cron/news-publish"]);
+  assert.deepEqual(config.crons.map((job) => job.path), ["/api/cron/news-review", "/api/cron/news-publish", "/api/cron/search-console-sync"]);
   assert.equal(config.crons[0].schedule, "10 */6 * * *");
   assert.equal(config.crons[1].schedule, "45 1,3,6 * * *");
+  assert.equal(config.crons[2].schedule, "30 8 * * *");
 });
 
 test("News automation has a fail-closed durable store, internal generator, lock and 48-hour gate", () => {

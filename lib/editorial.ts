@@ -33,10 +33,10 @@ export type Article = {
 };
 
 export const editorialAssets = {
-  guide: { src: "/media/editorial/buyer-guide-material-review.png", alt: "Bulk material on a conveyor beside generic inspection tools" },
-  guideHub: { src: "/media/editorial/blog-hub-process-planning.png", alt: "Blank process planning sheets, material samples and conveyor layout pieces" },
-  industry: { src: "/media/editorial/industry-news-material-sorting.png", alt: "Generic material sorting conveyors in an industrial setting" },
-  company: { src: "/media/editorial/company-news-catalog-workflow.png", alt: "Unbranded catalog and export coordination materials on a desk" },
+  guide: { src: "/media/editorial/buyer-guide-material-review.webp", alt: "Bulk material on a conveyor beside generic inspection tools" },
+  guideHub: { src: "/media/editorial/blog-hub-process-planning.webp", alt: "Blank process planning sheets, material samples and conveyor layout pieces" },
+  industry: { src: "/media/editorial/industry-news-material-sorting.webp", alt: "Generic material sorting conveyors in an industrial setting" },
+  company: { src: "/media/editorial/company-news-catalog-workflow.webp", alt: "Unbranded catalog and export coordination materials on a desk" },
 } as const;
 
 const guideBlocks = (a: string, b: string, c: string, d: string) => [

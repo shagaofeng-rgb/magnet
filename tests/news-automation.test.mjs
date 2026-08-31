@@ -32,6 +32,11 @@ test("public delivery verification covers detail, list, News sitemap and RSS", (
   }
 });
 
+test("News metadata uses an absolute BZMAGNET title without template duplication", () => {
+  const metadata = read("lib/news-metadata.ts");
+  assert.match(metadata, /title: \{ absolute: article\.seo\.metaTitle \}/);
+});
+
 test("Blog cannot be written by the automatic News publisher", () => {
   const source = read("lib/news-automation.ts");
   assert.match(source, /article\.contentType !== "industry_news"/);

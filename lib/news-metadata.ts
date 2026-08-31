@@ -7,7 +7,7 @@ export function articleMetadata(article: Article): Metadata {
   const hero = article.hero ? editorialAssets[article.hero.assetId as keyof typeof editorialAssets] : undefined;
   const images = hero ? [{ url: `${origin}${hero.src}`, alt: article.hero?.alt }] : undefined;
   return {
-    title: article.seo.metaTitle,
+    title: { absolute: article.seo.metaTitle },
     description: article.seo.metaDescription,
     alternates: { canonical: url, languages: { [article.locale]: url, "x-default": url } },
     robots: { index: true, follow: true },

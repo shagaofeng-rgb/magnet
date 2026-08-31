@@ -37,7 +37,11 @@ export async function listAutomationCandidates(limit = 100) {
     select candidate, status, article_id::text as article_id
     from news_candidates
     where site_id = 'bzmagnet'
-    order by discovered_at desc
+    order by case
+      when status = 'verified' and article_id is null then 0
+      when article_id is not null then 1
+      else 2
+    end, discovered_at desc
     limit ${limit}`;
   return rows.map((row) => ({ ...row.candidate, status: row.status, articleId: row.article_id || row.candidate.articleId }));
 }

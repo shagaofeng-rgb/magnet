@@ -61,11 +61,11 @@ const safeErrorCode = (error: unknown) => error instanceof Error ? error.message
 
 async function recordStatus(siteId: string, settingKey: string, value: Record<string, unknown>) {
   if (!sql) return;
-  await sql\`
+  await sql`
     insert into site_settings (site_id, setting_key, value, updated_at)
     values (${siteId}, ${settingKey}, ${sql.json(value)}, now())
     on conflict (site_id, setting_key) do update set value = excluded.value, updated_at = now()
-  \`;
+  `;
 }
 
 export async function syncSearchConsoleMetrics(siteId: string) {
@@ -89,17 +89,17 @@ export async function syncSearchConsoleMetrics(siteId: string) {
   await sql.begin(async (transaction) => {
     for (const row of rows) {
       const [metricDate, page] = row.keys!;
-      await transaction\`
+      await transaction`
         insert into seo_metrics (id, site_id, url, metric_date, clicks, impressions, ctr, average_position, source, metadata)
         values (${randomUUID()}, ${siteId}, ${page}, ${metricDate}, ${Math.round(row.clicks ?? 0)}, ${Math.round(row.impressions ?? 0)}, ${row.ctr ?? 0}, ${row.position ?? 0}, 'google_search_console', ${transaction.json({ property: settings.property })})
         on conflict (site_id, url, metric_date, source) do update set clicks = excluded.clicks, impressions = excluded.impressions, ctr = excluded.ctr, average_position = excluded.average_position, metadata = excluded.metadata
-      \`;
+      `;
     }
-    await transaction\`
+    await transaction`
       insert into site_settings (site_id, setting_key, value, updated_at)
       values (${siteId}, 'search_console_sync', ${transaction.json({ property: settings.property, lastSuccessAt: new Date().toISOString(), rows: rows.length })}, now())
       on conflict (site_id, setting_key) do update set value = excluded.value, updated_at = now()
-    \`;
+    `;
   });
   return { configured: true, rows: rows.length, property: settings.property, startDate: isoDate(start), endDate: isoDate(end) };
 }

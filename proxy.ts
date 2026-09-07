@@ -17,9 +17,12 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   // These routes authenticate in their own server handlers. All public routes remain geo-blocked.
   const protectedAdminAccess = pathname === "/admin/login" || pathname === "/admin/bzmagnet" || pathname.startsWith("/admin/bzmagnet/");
-  const protectedSync = pathname === "/api/admin/search-console/sync";
+  const protectedSync = pathname === "/api/admin/search-console/sync" || pathname === "/api/admin/search-console/inspect";
+  // Search-engine discovery files must remain fetchable even where normal
+  // visitor access is geo-restricted. This does not expose public page content.
+  const crawlerResource = ["/robots.txt", "/sitemap.xml", "/sitemap-index.xml", "/news-sitemap.xml", "/news/rss.xml"].includes(pathname);
   const country = request.headers.get("x-vercel-ip-country")?.toUpperCase();
-  if (country && blockedCountries.has(country) && !protectedAdminAccess && !protectedSync) return blockedResponse();
+  if (country && blockedCountries.has(country) && !protectedAdminAccess && !protectedSync && !crawlerResource) return blockedResponse();
   if (pathname === "/") return secure(NextResponse.redirect(new URL("/en", request.url), 308));
   // Public pages have one slashless canonical URL. Preserve query strings while
   // normalising accidental trailing slashes in a single redirect.
@@ -27,11 +30,6 @@ export function proxy(request: NextRequest) {
     const canonical = request.nextUrl.clone();
     canonical.pathname = pathname.slice(0, -1);
     return secure(NextResponse.redirect(canonical, 308));
-  }
-  if (pathname.startsWith("/ar/%D8%A7%D9%84%D9%85%D8%B9%D8%AF%D8%A7%D8%AA/") || pathname.startsWith("/ar/المعدات/")) {
-    const rewritten = request.nextUrl.clone();
-    rewritten.pathname = pathname.replace(/^\/ar\/(?:%D8%A7%D9%84%D9%85%D8%B9%D8%AF%D8%A7%D8%AA|المعدات)\//, "/ar/equipment/");
-    return secure(NextResponse.rewrite(rewritten));
   }
   const first = pathname.split("/")[1];
   if (!locales.includes(first as never) && !pathname.startsWith("/admin") && !pathname.startsWith("/api") && !pathname.includes(".")) return secure(NextResponse.redirect(new URL(`/en${pathname}`, request.url), 308));

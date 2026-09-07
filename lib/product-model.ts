@@ -55,10 +55,13 @@ export function productSlugFor(locale: Locale, product: Pick<ProductRecord, "id"
   return `${slugStem(product.locale[locale].title)}-${product.id.slice(0, 8)}`;
 }
 
+/** Encodes a dynamic segment before it is used in a redirect or canonical URL. */
+const productPathSegment = (value: string) => encodeURIComponent(value);
+
 /** The only URL emitted for a product in public navigation, metadata and sitemaps. */
-export const productPath = (locale: Locale, slug: string, familyId?: string) => `/${locale}/products/${familyId ? productCategoryPath(familyId) : "equipment"}/${slug}`;
+export const productPath = (locale: Locale, slug: string, familyId?: string) => `/${locale}/products/${familyId ? productCategoryPath(familyId) : "equipment"}/${productPathSegment(slug)}`;
 export const productPathFor = (locale: Locale, product: Pick<ProductRecord, "id" | "familyId" | "locale">) => productPath(locale, productSlugFor(locale, product), product.familyId);
-export const legacyProductPath = (locale: Locale, slug: string) => `/${locale}/${equipmentSegments[locale]}/${slug}`;
+export const legacyProductPath = (locale: Locale, slug: string) => `/${locale}/${productPathSegment(equipmentSegments[locale])}/${productPathSegment(slug)}`;
 
 /**
  * Strict canonical lookup. A suffix alone is deliberately insufficient: accepting

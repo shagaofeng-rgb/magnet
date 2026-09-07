@@ -6,7 +6,7 @@ import { PageHero } from "@/components/PageHero";
 import { families, products } from "@/lib/content";
 import { isLocale, type Locale } from "@/lib/i18n";
 import { alternates } from "@/lib/seo";
-import { findProduct, productPathFor, publicProducts } from "@/lib/product-model";
+import { findProductByLegacySlug, productPathFor, publicProducts } from "@/lib/product-model";
 import { homeCopy } from "@/lib/site-copy";
 
 export async function generateStaticParams() { return families.flatMap((family) => ["en", "es", "pt", "ar", "ru"].map((locale) => ({ locale, category: family.slug }))); }
@@ -36,7 +36,7 @@ export default async function Family({ params }: { params: Promise<{ locale: str
   if (!family) {
     const mappedCategory = legacyCategoryRedirects[category];
     if (mappedCategory) permanentRedirect(`/${locale}/products/${mappedCategory}`);
-    const legacyProduct = findProduct(locale as Locale, category);
+    const legacyProduct = findProductByLegacySlug(locale as Locale, category);
     if (legacyProduct) permanentRedirect(productPathFor(locale as Locale, legacyProduct));
     notFound();
   }

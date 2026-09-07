@@ -63,7 +63,7 @@ async function recordStatus(siteId: string, settingKey: string, value: Record<st
   if (!sql) return;
   await sql`
     insert into site_settings (site_id, setting_key, value, updated_at)
-    values (${siteId}, ${settingKey}, ${sql.json(value)}, now())
+    values (${siteId}, ${settingKey}, ${sql.json(value as never)}, now())
     on conflict (site_id, setting_key) do update set value = excluded.value, updated_at = now()
   `;
 }

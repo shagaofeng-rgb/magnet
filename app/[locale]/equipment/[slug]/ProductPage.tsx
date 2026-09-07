@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProductDetail } from "@/components/ProductDetail";
 import { isLocale, locales, origin, type Locale } from "@/lib/i18n";
-import { findProduct, productPathFor } from "@/lib/product-model";
+import { findProduct, isProductLocaleIndexable, productPathFor } from "@/lib/product-model";
 
 export async function metadataFor({ params }: { params: Promise<{ locale: string; slug: string }> }): Promise<Metadata> {
   const { locale, slug } = await params;
@@ -13,7 +13,33 @@ export async function metadataFor({ params }: { params: Promise<{ locale: string
   const localized = product.locale[activeLocale];
   const publicPath = productPathFor(activeLocale, product);
   const image = product.media.find((item) => item.isPrimary);
-  const languages = Object.fromEntries(locales.map((code) => [code, `${origin}${productPathFor(code, product)}`]));
-  return { title: { absolute: localized.metaTitle }, description: localized.metaDescription, alternates: { canonical: `${origin}${publicPath}`, languages: { ...languages, "x-default": `${origin}${productPathFor("en", product)}` } }, openGraph: { title: localized.metaTitle, description: localized.metaDescription, url: `${origin}${publicPath}`, images: image ? [{ url: `${origin}${image.src}`, alt: image.alt[activeLocale] }] : undefined } };
+  const indexable = isProductLocaleIndexable(activeLocale);
+  const languages = indexable
+    ? Object.fromEntries(locales.filter((code) => isProductLocaleIndexable(code)).map((code) => [code, `${origin}${productPathFor(code, product)}`]))
+    : undefined;
+
+  return {
+    title: { absolute: localized.metaTitle },
+    description: localized.metaDescription,
+    robots: indexable ? { index: true, follow: true } : { index: false, follow: true },
+    alternates: {
+      canonical: `${origin}${publicPath}`,
+      ...(languages ? { languages: { ...languages, "x-default": `${origin}${productPathFor("en", product)}` } } : {}),
+    },
+    openGraph: {
+      title: localized.metaTitle,
+      description: localized.metaDescription,
+      url: `${origin}${publicPath}`,
+      images: image ? [{ url: `${origin}${image.src}`, alt: image.alt[activeLocale] }] : undefined,
+    },
+  };
 }
-export async function ProductPage({ params }: { params: Promise<{ locale: string; slug: string }> }) { const { locale, slug } = await params; if (!isLocale(locale)) notFound(); const activeLocale = locale as Locale; const product = findProduct(activeLocale, slug); if (!product) notFound(); return <ProductDetail product={product} locale={activeLocale}/>; }
+
+export async function ProductPage({ params }: { params: Promise<{ locale: string; slug: string }> }) {
+  const { locale, slug } = await params;
+  if (!isLocale(locale)) notFound();
+  const activeLocale = locale as Locale;
+  const product = findProduct(activeLocale, slug);
+  if (!product) notFound();
+  return <ProductDetail product={product} locale={activeLocale} />;
+}

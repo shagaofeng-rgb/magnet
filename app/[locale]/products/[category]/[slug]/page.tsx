@@ -1,7 +1,7 @@
 import { notFound, permanentRedirect } from "next/navigation";
 import { metadataFor, ProductPage } from "@/app/[locale]/equipment/[slug]/ProductPage";
 import { isLocale, type Locale } from "@/lib/i18n";
-import { findProduct, findProductByLegacySlug, productCategoryPath, productPathFor, productSlugFor, publicProducts } from "@/lib/product-model";
+import { findProduct, findProductByLegacySlug, legacyCategoryPathForSlug, productCategoryPath, productPathFor, productSlugFor, publicProducts } from "@/lib/product-model";
 
 export async function generateStaticParams() {
   return publicProducts.flatMap((product) => ["en", "es", "pt", "ar", "ru"].map((locale) => ({
@@ -30,6 +30,12 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 export default async function ProductRoute({ params }: { params: Promise<{ locale: string; category: string; slug: string }> }) {
   const { locale, category, slug } = await params;
   if (!isLocale(locale)) notFound();
+  // Old URLs used /products/category/<old-family-slug>. Redirect only that
+  // explicit legacy shape to the matching current family page.
+  if (category === "category") {
+    const legacyCategory = legacyCategoryPathForSlug(slug);
+    if (legacyCategory) permanentRedirect(`/${locale}/products/${legacyCategory}`);
+  }
   const product = resolveCanonicalProduct(locale, category, slug);
   if (!product) notFound();
   if (productCategoryPath(product.familyId) !== category) permanentRedirect(productPathFor(locale, product));

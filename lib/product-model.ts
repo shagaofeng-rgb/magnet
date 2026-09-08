@@ -16,6 +16,23 @@ export const productCategorySlugs: Record<string, string> = {
 };
 export const productCategoryPath = (familyId: string) => productCategorySlugs[familyId] || "equipment";
 
+/** Exact historical names retained only where the current catalogue has a
+ * verified equivalent. This is deliberately a finite list, not fuzzy matching. */
+const historicalProductAliases: Record<string, string> = {
+  "eccentric-eddy-current-separator": "357c6bfd",
+  "permanent-overband-magnetic-separator": "24c3ec99",
+};
+
+/** Historical category and generic-product pages with a clear current family. */
+const historicalCategoryAliases: Record<string, string> = {
+  "metal-recycling-equipment": "recycling-metal-sorting",
+  "mining-magnetic-separation-equipment": "mineral-bulk-separation",
+  "food-grade-magnetic-separators": "process-magnets-filters",
+  "magnetic-components": "process-magnets-filters",
+  "eddy-current-separator": "recycling-metal-sorting",
+  "overband-magnetic-separator": "conveyor-magnetic-separation",
+};
+
 const denied = /cowin|TBD|Update Note|sourceClaims|```|manufacturer|guaranteed/i;
 export function validateProductForPublication(product: ProductRecord) {
   const errors: string[] = [];
@@ -76,10 +93,17 @@ export function findProduct(locale: Locale, slug: string) {
 export function findProductByLegacySlug(locale: Locale, slug: string) {
   const decoded = decodedSlug(slug);
   const opaqueSuffix = decoded.match(/-([0-9a-f]{8})$/i)?.[1];
+  const aliasId = historicalProductAliases[decoded.toLowerCase()];
   return publicProducts.find((product) =>
     product.locale[locale].slug === decoded ||
-    (opaqueSuffix ? product.id.startsWith(opaqueSuffix) : false),
+    (opaqueSuffix ? product.id.startsWith(opaqueSuffix) : false) ||
+    (aliasId ? product.id.startsWith(aliasId) : false),
   );
+}
+
+/** Returns a canonical category path for a known historical family URL. */
+export function legacyCategoryPathForSlug(slug: string) {
+  return historicalCategoryAliases[decodedSlug(slug).toLowerCase()];
 }
 
 /**

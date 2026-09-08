@@ -15,6 +15,26 @@ function blockedResponse() {
 }
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  // Keep the public hostname as a single, strong canonical signal. Preview and
+  // Vercel deployment hosts intentionally bypass this condition.
+  const requestHost = request.headers.get("host")?.split(":")[0].toLowerCase();
+  if (request.nextUrl.hostname === "www.bzmagnet.com" || requestHost === "www.bzmagnet.com") {
+    const canonical = request.nextUrl.clone();
+    canonical.hostname = "bzmagnet.com";
+    canonical.port = "";
+    return secure(NextResponse.redirect(canonical, 308));
+  }
+  // A small number of legacy crawls accidentally treated the old hostname as
+  // a pathname. Repair that malformed form once instead of creating a 404.
+  const embeddedHost = pathname.match(/^\/(?:www\.)?bzmagnet\.com(\/.*)?$/i);
+  if (embeddedHost) {
+    const canonical = request.nextUrl.clone();
+    canonical.pathname = embeddedHost[1] || "/";
+    return secure(NextResponse.redirect(canonical, 308));
+  }
+  // French was retired before the current five-language site was published.
+  // The former About page has one clear, equivalent English destination.
+  if (pathname === "/fr/about") return secure(NextResponse.redirect(new URL("/en/about-contact", request.url), 308));
   // These routes authenticate in their own server handlers. All public routes remain geo-blocked.
   const protectedAdminAccess = pathname === "/admin/login" || pathname === "/admin/bzmagnet" || pathname.startsWith("/admin/bzmagnet/");
   const protectedSync = pathname === "/api/admin/search-console/sync" || pathname === "/api/admin/search-console/inspect";

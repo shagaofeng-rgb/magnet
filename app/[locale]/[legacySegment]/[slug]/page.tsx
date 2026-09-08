@@ -1,6 +1,13 @@
 import { notFound, permanentRedirect } from "next/navigation";
 import { equipmentSegments, findProductByLegacySlug, productPathFor } from "@/lib/product-model";
-import { isLocale, type Locale } from "@/lib/i18n";
+import { isLocale, localePath, type Locale } from "@/lib/i18n";
+
+const legacyApplicationTargets: Record<string, string> = {
+  recycling: "industry-solutions/recycling",
+  "mining-minerals": "industry-solutions/mining-minerals",
+  "coal-bulk-handling": "industry-solutions/coal-bulk-handling",
+  "cement-aggregates": "industry-solutions/cement-aggregates",
+};
 
 /**
  * Retains historical locale-specific equipment URLs as one-hop permanent
@@ -15,6 +22,10 @@ export default async function LegacyEquipmentRoute({
   const { locale, legacySegment, slug } = await params;
   if (!isLocale(locale)) notFound();
   const activeLocale = locale as Locale;
+  if (legacySegment === "applications") {
+    const target = legacyApplicationTargets[slug];
+    if (target) permanentRedirect(localePath(activeLocale, target));
+  }
   if (legacySegment !== equipmentSegments[activeLocale]) notFound();
 
   const product = findProductByLegacySlug(activeLocale, slug);

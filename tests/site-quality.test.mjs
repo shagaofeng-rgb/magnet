@@ -28,3 +28,15 @@ test("search data synchronization is durable and authenticated", () => {
   assert.match(route, /syncSearchConsoleMetrics\("bzmagnet"\)/);
   assert.match(route, /status: 401/);
 });
+
+test("indexable detail pages emit canonical metadata and legacy redirects stay finite", () => {
+  const industry = read("app/[locale]/industry-solutions/[slug]/page.tsx");
+  const blog = read("app/[locale]/blog/[slug]/page.tsx");
+  const products = read("lib/product-model.ts");
+  const proxy = read("proxy.ts");
+  assert.match(industry, /alternates\(locale, `industry-solutions\/\$\{slug\}`\)/);
+  assert.match(blog, /articleMetadata\(article\)/);
+  assert.match(products, /historicalProductAliases/);
+  assert.match(products, /historicalCategoryAliases/);
+  assert.match(proxy, /hostname === "www\.bzmagnet\.com"/);
+});

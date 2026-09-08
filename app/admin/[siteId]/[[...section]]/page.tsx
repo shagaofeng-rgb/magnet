@@ -32,7 +32,7 @@ function compactBars({ title, items }: { title: string; items: Array<{ label: st
 
 function AnalyticsWorkspace({ area, data, route }: { area: AnalyticsArea; data: Awaited<ReturnType<typeof getAnalyticsDashboard>>; route: string }) {
   const params = new URLSearchParams();
-  params.set("range", data.filters.range); params.set("from", data.from); params.set("to", data.to); params.set("traffic", data.filters.traffic);
+  params.set("range", data.filters.range || "today"); params.set("from", data.from); params.set("to", data.to); params.set("traffic", data.filters.traffic);
   if (data.filters.channel) params.set("channel", data.filters.channel);
   if (data.filters.country) params.set("country", data.filters.country);
   if (data.filters.search) params.set("search", data.filters.search);
@@ -45,6 +45,7 @@ function AnalyticsWorkspace({ area, data, route }: { area: AnalyticsArea; data: 
     return String(route).concat("?").concat(next.toString());
   };
   const isVisitorView = area === "visitors";
+  const journey = data.visitorJourney;
   const activeTotal = isVisitorView ? data.profileTotalRows : data.totalRows;
   const totalPages = Math.max(1, Math.ceil(activeTotal / data.filters.pageSize));
   const maxTrend = Math.max(...data.trend.map((point) => point.views), 1);
@@ -74,7 +75,7 @@ function AnalyticsWorkspace({ area, data, route }: { area: AnalyticsArea; data: 
       {!(isVisitorView ? data.profiles.length : data.visitors.length) ? <p className="admin-empty">此筛选条件下暂无记录。</p> : null}
       <nav className="admin-pagination" aria-label="列表分页"><Link aria-disabled={data.filters.page <= 1} href={url({ page: Math.max(1, data.filters.page - 1) })}>上一页</Link><span>第 {data.filters.page} / {totalPages} 页</span><Link aria-disabled={data.filters.page >= totalPages} href={url({ page: Math.min(totalPages, data.filters.page + 1) })}>下一页</Link>{[25, 50, 100].map((size) => <Link key={size} className={size === data.filters.pageSize ? "active" : ""} href={url({ page: 1, pageSize: size })}>{size}/页</Link>)}</nav>
     </section>
-    {data.visitorJourney ? <section className="admin-panel admin-journey"><div className="admin-table-heading"><div><h2>访客访问详情</h2><p>匿名访客 {data.visitorJourney.visitor.visitor} · 全部已记录的有效访问</p></div><Link href={url({ visitor: undefined, session: undefined })}>关闭详情</Link></div><div className="admin-journey-summary"><span>访问 {data.visitorJourney.visitor.visits} 次</span><span>事件 {data.visitorJourney.visitor.events} 次</span><span>{data.visitorJourney.visitor.country}</span><span>{data.visitorJourney.visitor.channel}</span></div><h3>访问会话</h3><ol className="admin-session-list">{data.visitorJourney.sessions.map((row) => <li key={row.id}><div><strong>第 {row.visitNumber || "—"} 次访问</strong><span>{row.startedAt} · {row.channel} · {row.country}</span></div><p>{row.pathSummary}</p><Link href={url({ visitor: data.visitorJourney.visitor.visitorKey, session: row.id })}>查看该次事件</Link></li>)}</ol><h3>完整事件路径</h3><ol className="admin-event-list">{data.visitorJourney.events.map((event, index) => <li key={String(event.at).concat(String(index))}><strong>{event.event}</strong><span>{event.path}</span><time>{event.at}</time></li>)}</ol></section> : null}
+    {journey ? <section className="admin-panel admin-journey"><div className="admin-table-heading"><div><h2>访客访问详情</h2><p>匿名访客 {journey.visitor.visitor} · 全部已记录的有效访问</p></div><Link href={url({ visitor: undefined, session: undefined })}>关闭详情</Link></div><div className="admin-journey-summary"><span>访问 {journey.visitor.visits} 次</span><span>事件 {journey.visitor.events} 次</span><span>{journey.visitor.country}</span><span>{journey.visitor.channel}</span></div><h3>访问会话</h3><ol className="admin-session-list">{journey.sessions.map((row) => <li key={row.id}><div><strong>第 {row.visitNumber || "—"} 次访问</strong><span>{row.startedAt} · {row.channel} · {row.country}</span></div><p>{row.pathSummary}</p><Link href={url({ visitor: journey.visitor.visitorKey, session: row.id })}>查看该次事件</Link></li>)}</ol><h3>完整事件路径</h3><ol className="admin-event-list">{journey.events.map((event, index) => <li key={String(event.at).concat(String(index))}><strong>{event.event}</strong><span>{event.path}</span><time>{event.at}</time></li>)}</ol></section> : null}
     {data.timeline.length ? <section className="admin-panel"><h2>选中会话事件</h2><ol className="admin-event-list">{data.timeline.map((event, index) => <li key={String(event.at).concat(String(index))}><strong>{event.event}</strong><span>{event.path}</span><time>{event.at}</time></li>)}</ol></section> : null}
   </>;
 }

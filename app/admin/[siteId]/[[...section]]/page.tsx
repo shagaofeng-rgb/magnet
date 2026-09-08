@@ -22,9 +22,7 @@ const copy: Record<string, { title: string; description: string }> = {
   paths: { title: "访问路径", description: "查看真实访问从入口到退出的匿名路径。" },
   settings: { title: "系统设置", description: "查看站点连接与已保存的运营设置。" },
 };
-const rangeButtons = [{ label: "今天", days: 0 }, { label: "近 7 天", days: 6 }, { label: "近 30 天", days: 29 }];
 const number = new Intl.NumberFormat("zh-CN");
-const localDate = (value: Date) => value.toISOString().slice(0, 10);
 const displayTime = (value: string | null, timeZone: string) => value ? new Date(value).toLocaleString("zh-CN", { timeZone, hour12: false }) : "尚无有效事件";
 
 function compactBars({ title, items }: { title: string; items: Array<{ label: string; value: number }> }) {
@@ -34,47 +32,49 @@ function compactBars({ title, items }: { title: string; items: Array<{ label: st
 
 function AnalyticsWorkspace({ area, data, route }: { area: AnalyticsArea; data: Awaited<ReturnType<typeof getAnalyticsDashboard>>; route: string }) {
   const params = new URLSearchParams();
-  params.set("from", data.from); params.set("to", data.to); params.set("traffic", data.filters.traffic);
+  params.set("range", data.filters.range); params.set("from", data.from); params.set("to", data.to); params.set("traffic", data.filters.traffic);
   if (data.filters.channel) params.set("channel", data.filters.channel);
   if (data.filters.country) params.set("country", data.filters.country);
   if (data.filters.search) params.set("search", data.filters.search);
+  if (data.filters.visitor) params.set("visitor", data.filters.visitor);
+  if (data.filters.session) params.set("session", data.filters.session);
   params.set("pageSize", String(data.filters.pageSize));
   const url = (changes: Record<string, string | number | undefined>) => {
     const next = new URLSearchParams(params);
     Object.entries(changes).forEach(([key, value]) => value === undefined || value === "" ? next.delete(key) : next.set(key, String(value)));
     return String(route).concat("?").concat(next.toString());
   };
-  const totalPages = Math.max(1, Math.ceil(data.totalRows / data.filters.pageSize));
+  const isVisitorView = area === "visitors";
+  const activeTotal = isVisitorView ? data.profileTotalRows : data.totalRows;
+  const totalPages = Math.max(1, Math.ceil(activeTotal / data.filters.pageSize));
   const maxTrend = Math.max(...data.trend.map((point) => point.views), 1);
+  const rangeButtons = [["today", "今天"], ["week", "本周"], ["month", "本月"]] as const;
   return <>
-    <section className={String("admin-sync ").concat(data.connected ? "ready" : "")}><span />{data.connected ? <>第一方数据已连接 <small>最近有效事件：{displayTime(data.lastEventAt, "Asia/Shanghai")} · 默认已排除测试、自动化、预览及 collects 来源流量</small></> : <>分析数据库尚未连接 <small>连接完成前不会使用演示数据替代真实数据。</small></>}</section>
+    <section className={String("admin-sync ").concat(data.connected ? "ready" : "")}><span />{data.connected ? <>第一方数据已连接 <small>最近有效事件：{displayTime(data.lastEventAt, "Asia/Shanghai")} · 默认排除测试、自动化、预览和 Collects 来源流量</small></> : <>分析数据库尚未连接 <small>连接完成前不会使用演示数据替代真实数据。</small></>}</section>
     <form className="admin-filter-panel" method="get">
+      <label>时间范围<select name="range" defaultValue={data.filters.range}><option value="today">今天</option><option value="week">本周</option><option value="month">本月</option><option value="custom">自定义</option></select></label>
       <label>开始日期<input type="date" name="from" defaultValue={data.from} max={data.to} /></label>
       <label>结束日期<input type="date" name="to" defaultValue={data.to} min={data.from} /></label>
       <label>流量口径<select name="traffic" defaultValue={data.filters.traffic}><option value="valid">仅真实流量</option><option value="all">全部（含隔离）</option><option value="excluded">仅隔离流量</option></select></label>
       <label>渠道<input name="channel" defaultValue={data.filters.channel} placeholder="例如 organic" /></label>
       <label>国家/地区<input name="country" defaultValue={data.filters.country} placeholder="例如 US" maxLength={2} /></label>
-      <label className="admin-filter-search">页面或来源<input name="search" defaultValue={data.filters.search} placeholder="/en/ 或来源域名" /></label>
+      <label className="admin-filter-search">页面、来源或 UTM<input name="search" defaultValue={data.filters.search} placeholder="/en/ 或来源域名" /></label>
       <input type="hidden" name="pageSize" value={data.filters.pageSize} />
-      <button type="submit">应用筛选</button>
-      <Link href={route}>清除筛选</Link>
+      <button type="submit">应用筛选</button><Link href={route}>重置</Link>
     </form>
-    <div className="admin-quick-range">{rangeButtons.map((button) => {
-      const to = new Date(), from = new Date();
-      from.setUTCDate(from.getUTCDate() - button.days);
-      return <Link key={button.label} href={url({ from: localDate(from), to: localDate(to), page: undefined })}>{button.label}</Link>;
-    })}</div>
+    <div className="admin-quick-range">{rangeButtons.map(([range, label]) => <Link key={range} className={data.filters.range === range ? "active" : ""} href={url({ range, from: undefined, to: undefined, page: 1, visitor: undefined, session: undefined })}>{label}</Link>)}<Link className={data.filters.range === "custom" ? "active" : ""} href={url({ range: "custom", page: 1 })}>自定义</Link></div>
     <section className="admin-metrics admin-metrics-dense">
-      {[["页面浏览", data.totals.views, "first_party"], ["独立访客", data.totals.visitors, "visitor"], ["有效会话", data.totals.sessions, "session"], ["回访会话", data.totals.returning, "returning"], ["询盘转化", data.totals.leads, "lead"], ["已隔离流量", data.totals.excluded, "excluded"]].map(([label, value, detail]) => <article key={String(label)}><small>{label}</small><strong>{number.format(Number(value))}</strong><em>{detail === "excluded" ? "不进入主指标" : "当前筛选范围"}</em></article>)}
+      {[[ "页面浏览", data.totals.views, "有效第一方事件" ], [ "独立访客", data.totals.visitors, "以匿名访客 ID 去重" ], [ "有效会话", data.totals.sessions, "当前范围" ], [ "回访会话", data.totals.returning, "同一匿名访客再次访问" ], [ "询盘转化", data.totals.leads, "有效提交" ], [ "已隔离流量", data.totals.excluded, "不进入正式指标" ]].map(([label, value, detail]) => <article key={String(label)}><small>{label}</small><strong>{number.format(Number(value))}</strong><em>{detail}</em></article>)}
     </section>
-    <section className="admin-panel admin-trend-panel"><h2>有效流量趋势</h2>{data.trend.length ? <div className="admin-bar-chart" aria-label="按日的有效页面浏览趋势">{data.trend.map((point) => <div className="admin-bar-group" key={point.label}><div className="admin-bars"><span style={{ height: String(Math.max((point.views / maxTrend) * 100, 2)).concat("%") }} title={String(point.label).concat(" ").concat(String(point.views))} /></div><small>{point.label}</small></div>)}</div> : <p className="admin-empty">新口径从本次升级部署后开始累计；这里不会把未分类的历史测试流量伪装为真实流量。</p>}</section>
+    <section className="admin-panel admin-trend-panel"><h2>有效流量趋势</h2>{data.trend.length ? <div className="admin-bar-chart" aria-label="按日的有效页面浏览趋势">{data.trend.map((point) => <div className="admin-bar-group" key={point.label}><div className="admin-bars"><span style=${ height: String(Math.max((point.views / maxTrend) * 100, 2)).concat("%") }} title={String(point.label).concat(" ").concat(String(point.views))} /></div><small>{point.label}</small></div>)}</div> : <p className="admin-empty">当前时间范围没有有效访问；隔离流量不会填充真实指标。</p>}</section>
     <div className="admin-breakdown-grid">{compactBars({ title: "来源渠道", items: data.channels })}{compactBars({ title: "访问国家/地区", items: data.countries })}{compactBars({ title: "访问设备", items: data.devices })}</div>
     {(area === "overview" || area === "page-performance") ? <section className="admin-panel admin-table"><h2>页面表现</h2><div className="admin-table-scroll"><table><thead><tr><th>页面</th><th>浏览</th><th>访客</th><th>询盘</th></tr></thead><tbody>{data.pages.map((item) => <tr key={item.path}><td>{item.path}</td><td>{number.format(item.views)}</td><td>{number.format(item.visitors)}</td><td>{number.format(item.leads)}</td></tr>)}</tbody></table></div>{!data.pages.length ? <p className="admin-empty">当前范围内暂无有效页面数据。</p> : null}</section> : null}
-    <section className="admin-panel admin-table"><div className="admin-table-heading"><div><h2>{area === "paths" ? "访问路径" : area === "traffic" ? "真实来源会话" : "匿名访客会话"}</h2><p>显示 {data.totalRows ? (data.filters.page - 1) * data.filters.pageSize + 1 : 0}–{Math.min(data.filters.page * data.filters.pageSize, data.totalRows)} / {data.totalRows} 条</p></div><span className="admin-page-size-label">每页可切换 25 / 50 / 100 条</span></div>
-      <div className="admin-table-scroll"><table><thead><tr><th>匿名访客</th><th>第几次访问</th><th>国家</th><th>渠道/来源</th><th>入口 → 退出</th><th>设备/语言</th><th>事件</th><th>时间</th><th>路径</th></tr></thead><tbody>{data.visitors.map((row) => <tr key={row.id}><td>{row.visitor}<small>{row.returning ? "回访" : "首次"}</small></td><td>{row.visitNumber || "历史记录"}</td><td>{row.country}</td><td>{row.channel}<small>{row.source}</small></td><td>{row.landing}<small>{row.exit}</small></td><td>{row.device}<small>{row.locale}</small></td><td>{row.events}</td><td>{row.startedAt}</td><td><details><summary>查看</summary><span>{row.pathSummary}</span>{row.trafficClass !== "valid" ? <small>已隔离：{row.excludedReason || row.trafficClass}</small> : null}</details></td></tr>)}</tbody></table></div>
-      {!data.visitors.length ? <p className="admin-empty">此筛选条件下暂无会话记录。</p> : null}
-      <nav className="admin-pagination" aria-label="会话分页"><Link aria-disabled={data.filters.page <= 1} href={url({ page: Math.max(1, data.filters.page - 1) })}>上一页</Link><span>第 {data.filters.page} / {totalPages} 页</span><Link aria-disabled={data.filters.page >= totalPages} href={url({ page: Math.min(totalPages, data.filters.page + 1) })}>下一页</Link>{[25, 50, 100].map((size) => <Link key={size} className={size === data.filters.pageSize ? "active" : ""} href={url({ page: 1, pageSize: size })}>{size}/页</Link>)}</nav>
+    <section className="admin-panel admin-table"><div className="admin-table-heading"><div><h2>{isVisitorView ? "匿名访客归属" : area === "paths" ? "访问路径会话" : "真实来源会话"}</h2><p>显示 {activeTotal ? (data.filters.page - 1) * data.filters.pageSize + 1 : 0}–{Math.min(data.filters.page * data.filters.pageSize, activeTotal)} / {activeTotal} 条</p></div><span className="admin-page-size-label">每页 25 / 50 / 100 条</span></div>
+      <div className="admin-table-scroll">{isVisitorView ? <table><thead><tr><th>匿名访客</th><th>访问次数</th><th>首次 / 最近访问</th><th>国家</th><th>最近来源</th><th>入口 → 退出</th><th>设备 / 语言</th><th>事件</th><th>详情</th></tr></thead><tbody>{data.profiles.map((row) => <tr key={row.visitorKey}><td>{row.visitor}<small>受保护匿名标识</small></td><td>{row.visits}<small>其中回访 {row.returningVisits}</small></td><td>{row.firstSeen}<small>{row.lastSeen}</small></td><td>{row.country}</td><td>{row.channel}<small>{row.source}</small></td><td>{row.landing}<small>{row.exit}</small></td><td>{row.device}<small>{row.locale}</small></td><td>{row.events}</td><td><Link className="admin-detail-link" href={url({ visitor: row.visitorKey, session: undefined })}>查看全部路径</Link></td></tr>)}</tbody></table> : <table><thead><tr><th>匿名访客</th><th>第几次访问</th><th>国家</th><th>渠道 / 来源</th><th>入口 → 退出</th><th>设备 / 语言</th><th>事件</th><th>时间</th><th>路径</th></tr></thead><tbody>{data.visitors.map((row) => <tr key={row.id}><td>{row.visitor}<small>{row.returning ? "回访" : "首次"}</small></td><td>{row.visitNumber || "历史记录"}</td><td>{row.country}</td><td>{row.channel}<small>{row.source}</small></td><td>{row.landing}<small>{row.exit}</small></td><td>{row.device}<small>{row.locale}</small></td><td>{row.events}</td><td>{row.startedAt}</td><td><details><summary>查看</summary><span>{row.pathSummary}</span>{row.trafficClass !== "valid" ? <small>已隔离：{row.excludedReason || row.trafficClass}</small> : null}</details></td></tr>)}</tbody></table>}</div>
+      {!(isVisitorView ? data.profiles.length : data.visitors.length) ? <p className="admin-empty">此筛选条件下暂无记录。</p> : null}
+      <nav className="admin-pagination" aria-label="列表分页"><Link aria-disabled={data.filters.page <= 1} href={url({ page: Math.max(1, data.filters.page - 1) })}>上一页</Link><span>第 {data.filters.page} / {totalPages} 页</span><Link aria-disabled={data.filters.page >= totalPages} href={url({ page: Math.min(totalPages, data.filters.page + 1) })}>下一页</Link>{[25, 50, 100].map((size) => <Link key={size} className={size === data.filters.pageSize ? "active" : ""} href={url({ page: 1, pageSize: size })}>{size}/页</Link>)}</nav>
     </section>
+    {data.visitorJourney ? <section className="admin-panel admin-journey"><div className="admin-table-heading"><div><h2>访客访问详情</h2><p>匿名访客 {data.visitorJourney.visitor.visitor} · 全部已记录的有效访问</p></div><Link href={url({ visitor: undefined, session: undefined })}>关闭详情</Link></div><div className="admin-journey-summary"><span>访问 {data.visitorJourney.visitor.visits} 次</span><span>事件 {data.visitorJourney.visitor.events} 次</span><span>{data.visitorJourney.visitor.country}</span><span>{data.visitorJourney.visitor.channel}</span></div><h3>访问会话</h3><ol className="admin-session-list">{data.visitorJourney.sessions.map((row) => <li key={row.id}><div><strong>第 {row.visitNumber || "—"} 次访问</strong><span>{row.startedAt} · {row.channel} · {row.country}</span></div><p>{row.pathSummary}</p><Link href={url({ visitor: row.visitorKey, session: row.id })}>查看该次事件</Link></li>)}</ol><h3>完整事件路径</h3><ol className="admin-event-list">{data.visitorJourney.events.map((event, index) => <li key={String(event.at).concat(String(index))}><strong>{event.event}</strong><span>{event.path}</span><time>{event.at}</time></li>)}</ol></section> : null}
     {data.timeline.length ? <section className="admin-panel"><h2>选中会话事件</h2><ol className="admin-event-list">{data.timeline.map((event, index) => <li key={String(event.at).concat(String(index))}><strong>{event.event}</strong><span>{event.path}</span><time>{event.at}</time></li>)}</ol></section> : null}
   </>;
 }
@@ -90,11 +90,13 @@ export default async function AdminModulePage({ params, searchParams }: { params
   const route = String("/admin/").concat(siteId).concat("/").concat(area[0]);
   const isAnalytics = analyticsAreas.has(area[0] as AnalyticsArea);
   const filters: AnalyticsFilters = {
+    range: search.range === "week" || search.range === "month" || search.range === "custom" ? search.range : "today",
     from: typeof search.from === "string" ? search.from : undefined, to: typeof search.to === "string" ? search.to : undefined,
     channel: typeof search.channel === "string" ? search.channel : undefined, country: typeof search.country === "string" ? search.country : undefined,
     traffic: search.traffic === "all" || search.traffic === "excluded" ? search.traffic : "valid",
     search: typeof search.search === "string" ? search.search : undefined, page: Number(search.page) || 1, pageSize: Number(search.pageSize) || 25,
     session: typeof search.session === "string" ? search.session : undefined,
+    visitor: typeof search.visitor === "string" ? search.visitor : undefined,
   };
   const [analytics, legacy] = await Promise.all([isAnalytics ? getAnalyticsDashboard(filters) : Promise.resolve(null), isAnalytics ? Promise.resolve(null) : getAdminModuleData(siteId, area[0], 7)]);
   const canConfigure = session.role === "super_admin" || session.role === "site_admin";

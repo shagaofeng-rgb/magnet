@@ -99,8 +99,17 @@ export default async function AdminModulePage({ params, searchParams }: { params
     session: typeof search.session === "string" ? search.session : undefined,
     visitor: typeof search.visitor === "string" ? search.visitor : undefined,
   };
-  const [analytics, legacy] = await Promise.all([isAnalytics ? getAnalyticsDashboard(filters) : Promise.resolve(null), isAnalytics ? Promise.resolve(null) : getAdminModuleData(siteId, area[0], 7)]);
+  const [analytics, legacy] = await Promise.all([isAnalytics ? getAnalyticsDashboard(filters) : Promise.resolve(null), isAnalytics ? Promise.resolve(null) : getAdminModuleData(siteId, area[0], { range: filters.range, from: filters.from, to: filters.to, page: filters.page, pageSize: filters.pageSize })]);
   const canConfigure = session.role === "super_admin" || session.role === "site_admin";
+  const legacyUrl = (changes: Record<string, string | number | undefined>) => {
+    const query = new URLSearchParams();
+    query.set("range", filters.range || "today");
+    if (filters.from) query.set("from", filters.from);
+    if (filters.to) query.set("to", filters.to);
+    query.set("pageSize", String(filters.pageSize));
+    Object.entries(changes).forEach(([key, value]) => value === undefined || value === "" ? query.delete(key) : query.set(key, String(value)));
+    return String(route).concat("?").concat(query.toString());
+  };
 
   return <div className="admin-console">
     <aside className="admin-sidebar">
@@ -111,12 +120,21 @@ export default async function AdminModulePage({ params, searchParams }: { params
     <main className="admin-main">
       <header className="admin-page-head"><div><p className="admin-eyebrow">BZMAGNET · {site.timezone}</p><h1>{title.title}</h1><p>{title.description}</p></div><div className="admin-live-state"><span />数据刷新：有效事件写入后约 60 秒内显示</div></header>
       {analytics ? <AnalyticsWorkspace area={area[0] as AnalyticsArea} data={analytics} route={route} /> : legacy ? <>
-        <section className={String("admin-sync ").concat(legacy.connected ? "ready" : "")}><span />{legacy.connected ? <>站点数据已连接 <small>最近 Search Console 同步：{displayTime(legacy.lastSynced, site.timezone)}</small></> : "数据库尚未连接"}</section>
+        <section className={String("admin-sync ").concat(legacy.connected ? "ready" : "")}><span />{legacy.connected ? <>站点数据已连接 <small>数据范围：{legacy.from} 至 {legacy.to} · 最近 Search Console 同步：{displayTime(legacy.lastSynced, site.timezone)}</small></> : "数据库尚未连接"}</section>
+        <form className="admin-filter-panel" method="get">
+          <label>时间范围<select name="range" defaultValue={filters.range}><option value="today">今天</option><option value="week">本周</option><option value="month">本月</option><option value="custom">自定义</option></select></label>
+          <label>开始日期<input type="date" name="from" defaultValue={legacy.from} max={legacy.to} /></label>
+          <label>结束日期<input type="date" name="to" defaultValue={legacy.to} min={legacy.from} /></label>
+          <label>每页条数<select name="pageSize" defaultValue={String(legacy.pageSize)}><option value="25">25 条</option><option value="50">50 条</option><option value="100">100 条</option></select></label>
+          <input type="hidden" name="page" value="1" />
+          <button type="submit">应用筛选</button><Link href={route}>重置</Link>
+        </form>
+        <div className="admin-quick-range"><Link className={filters.range === "today" ? "active" : ""} href={legacyUrl({ range: "today", from: undefined, to: undefined, page: 1 })}>今天</Link><Link className={filters.range === "week" ? "active" : ""} href={legacyUrl({ range: "week", from: undefined, to: undefined, page: 1 })}>本周</Link><Link className={filters.range === "month" ? "active" : ""} href={legacyUrl({ range: "month", from: undefined, to: undefined, page: 1 })}>本月</Link><Link className={filters.range === "custom" ? "active" : ""} href={legacyUrl({ range: "custom", page: 1 })}>自定义</Link></div>
         {canConfigure && area[0] === "seo" ? <section className="admin-action"><div><strong>Google Search Console</strong><span>同步后更新当前站点的搜索表现。</span></div><form action={syncSearchConsole}><input type="hidden" name="siteId" value={siteId} /><button type="submit">同步搜索数据</button></form></section> : null}
         {canConfigure && area[0] === "news-operations" ? <section className="admin-action"><div><strong>来源目录核验</strong><span>只检查待核验来源状态，不发布内容。</span></div><form action={validateNewsSources}><input type="hidden" name="siteId" value={siteId} /><button type="submit">核验下一批来源</button></form></section> : null}
         <section className="admin-metrics admin-metrics-dense">{legacy.metrics.map((metric) => <Link key={metric.label} href={metric.href}><article><small>{metric.label}</small><strong>{metric.value}</strong>{metric.detail ? <em>{metric.detail}</em> : null}</article></Link>)}</section>
         <div className="admin-breakdown-grid">{legacy.breakdowns.map((breakdown) => compactBars({ title: breakdown.title, items: breakdown.items }))}</div>
-        <section className="admin-panel admin-table"><h2>{legacy.table.title}</h2><div className="admin-table-scroll"><table><thead><tr>{legacy.table.columns.map((column) => <th key={column}>{column}</th>)}</tr></thead><tbody>{legacy.table.rows.map((row, index) => <tr key={String(index)}>{row.map((cell, cellIndex) => <td key={String(cellIndex)}>{cell}</td>)}</tr>)}</tbody></table></div>{!legacy.table.rows.length ? <p className="admin-empty">{legacy.table.emptyText}</p> : null}</section>
+        <section className="admin-panel admin-table"><div className="admin-table-heading"><div><h2>{legacy.table.title}</h2><p>显示 {legacy.totalRows ? (legacy.page - 1) * legacy.pageSize + 1 : 0}–{Math.min(legacy.page * legacy.pageSize, legacy.totalRows)} / {legacy.totalRows} 条</p></div><span className="admin-page-size-label">固定每页 {legacy.pageSize} 条</span></div><div className="admin-table-scroll"><table><thead><tr>{legacy.table.columns.map((column) => <th key={column}>{column}</th>)}</tr></thead><tbody>{legacy.table.rows.map((row, index) => <tr key={String(index)}>{row.map((cell, cellIndex) => <td key={String(cellIndex)}>{cell}</td>)}</tr>)}</tbody></table></div>{!legacy.table.rows.length ? <p className="admin-empty">{legacy.table.emptyText}</p> : null}<nav className="admin-pagination" aria-label="后台列表分页"><Link aria-disabled={legacy.page <= 1} href={legacyUrl({ page: Math.max(1, legacy.page - 1) })}>上一页</Link><span>第 {legacy.page} / {Math.max(1, Math.ceil(legacy.totalRows / legacy.pageSize))} 页</span><Link aria-disabled={legacy.page >= Math.max(1, Math.ceil(legacy.totalRows / legacy.pageSize))} href={legacyUrl({ page: legacy.page + 1 })}>下一页</Link>{[25, 50, 100].map((size) => <Link key={size} className={size === legacy.pageSize ? "active" : ""} href={legacyUrl({ page: 1, pageSize: size })}>{size}/页</Link>)}</nav></section>
       </> : null}
     </main>
   </div>;

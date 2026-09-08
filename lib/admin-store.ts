@@ -28,7 +28,7 @@ const bars = <T extends { label: string; value: number | string | null }>(rows: 
 function dates(input: AdminQuery) {
   const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" });
   const preset = input.range || "week";
-  const parse = (value: string | undefined) => value && /^\\d{4}-\\d{2}-\\d{2}$/.test(value) ? value : undefined;
+  const parse = (value: string | undefined) => value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined;
   const addDays = (value: string, days: number) => {
     const date = new Date(`${value}T00:00:00+08:00`);
     date.setUTCDate(date.getUTCDate() + days);

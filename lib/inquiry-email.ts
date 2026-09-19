@@ -1,6 +1,7 @@
 import "server-only";
 
 import nodemailer from "nodemailer";
+import { companyEmail } from "@/lib/contact";
 
 type InquiryPayload = {
   name: string;
@@ -24,7 +25,7 @@ function configuration() {
   const host = process.env.BZMAGNET_SMTP_HOST;
   const user = process.env.BZMAGNET_SMTP_USER;
   const pass = process.env.BZMAGNET_SMTP_PASSWORD;
-  const to = process.env.BZMAGNET_EMAIL_TO;
+  const to = companyEmail;
   const from = process.env.BZMAGNET_EMAIL_FROM || user;
   if (!host || !user || !pass || !to || !from) return null;
   return { host, user, pass, to, from, port: Number(process.env.BZMAGNET_SMTP_PORT || 465) };

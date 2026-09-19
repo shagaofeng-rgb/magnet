@@ -7,6 +7,7 @@ import { families } from "@/lib/content";
 import { categoryImages, homeCopy, industrySlugs } from "@/lib/site-copy";
 import { isLocale, localePath, origin } from "@/lib/i18n";
 import { alternates } from "@/lib/seo";
+import { companyEmail } from "@/lib/contact";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
   if (!isLocale(locale)) notFound();
   const copy = homeCopy[locale];
   const selectionSteps = copy.checklist.slice(0, 4);
-  const publicEmail = process.env.BZMAGNET_PUBLIC_EMAIL;
+  const publicEmail = companyEmail;
   const publicPhone = process.env.BZMAGNET_PUBLIC_PHONE;
   const organization = {
     "@context": "https://schema.org", "@type": "Organization", "@id": `${origin}/#organization`, name: "BZMAGNET", url: origin,

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { type Locale, localeNames, localePath, locales } from "@/lib/i18n";
 
 type MenuName = "products" | "industries" | "news" | null;
@@ -125,6 +126,8 @@ export function SiteHeader({ locale }: { locale: Locale }) {
   const [mobileSection, setMobileSection] = useState<MenuName>(null);
   const menuButton = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!drawer) return;
@@ -164,8 +167,31 @@ export function SiteHeader({ locale }: { locale: Locale }) {
     return () => document.removeEventListener("keydown", escape);
   }, []);
 
+  useEffect(() => {
+    setOpen(null);
+    setDrawer(false);
+    setMobileSection(null);
+  }, [pathname]);
+
+  useEffect(() => () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+  }, []);
+
   const toggle = (name: Exclude<MenuName, null>) => setOpen((current) => current === name ? null : name);
+  const cancelScheduledClose = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = null;
+  };
+  const openMenu = (name: Exclude<MenuName, null>) => {
+    cancelScheduledClose();
+    setOpen(name);
+  };
+  const scheduleClose = () => {
+    cancelScheduledClose();
+    closeTimer.current = setTimeout(() => setOpen(null), 140);
+  };
   const closeAll = () => {
+    cancelScheduledClose();
     setOpen(null);
     setDrawer(false);
     setMobileSection(null);
@@ -174,29 +200,29 @@ export function SiteHeader({ locale }: { locale: Locale }) {
   return <>
     <a className="skip" href="#content">{t.skip}</a>
     <div className="topline" />
-    <header className="site-header" onMouseLeave={() => setOpen(null)}>
+    <header className="site-header">
       <div className="shell header-row">
         <Link className="brand" href={localePath(locale)} onClick={closeAll}><span className="brand-mark">B</span>BZMAGNET</Link>
         <nav className="desktop-nav" aria-label="Primary navigation">
-          <Link href={localePath(locale)}>{t.home}</Link>
-          <div className="nav-group">
-            <button aria-expanded={open === "products"} aria-controls="products-menu" onClick={() => toggle("products")} onMouseEnter={() => setOpen("products")}>{t.products}<span aria-hidden="true">▾</span></button>
+          <Link href={localePath(locale)} onClick={closeAll}>{t.home}</Link>
+          <div className="nav-group nav-group-mega" onMouseEnter={() => openMenu("products")} onMouseLeave={scheduleClose}>
+            <button aria-expanded={open === "products"} aria-controls="products-menu" aria-haspopup="true" onClick={() => toggle("products")} onFocus={() => openMenu("products")}>{t.products}<span aria-hidden="true">▾</span></button>
             {open === "products" && <div id="products-menu" className="mega-menu">
               <div className="mega-intro"><span className="eyebrow">{t.products}</span><strong>{t.chooseByProcess}</strong><Link href={localePath(locale, "products")} onClick={closeAll}>{t.allProducts} →</Link></div>
               <div className="mega-links">{t.productsMenu.map((item, index) => <Link key={item.slug} href={localePath(locale, `products/${item.slug}`)} onClick={closeAll}><span>0{index + 1}</span><strong>{item.name}</strong><small>{t.productDescription}</small></Link>)}</div>
             </div>}
           </div>
-          <div className="nav-group">
-            <button aria-expanded={open === "industries"} aria-controls="industries-menu" onClick={() => toggle("industries")} onMouseEnter={() => setOpen("industries")}>{t.industries}<span aria-hidden="true">▾</span></button>
+          <div className="nav-group" onMouseEnter={() => openMenu("industries")} onMouseLeave={scheduleClose}>
+            <button aria-expanded={open === "industries"} aria-controls="industries-menu" aria-haspopup="true" onClick={() => toggle("industries")} onFocus={() => openMenu("industries")}>{t.industries}<span aria-hidden="true">▾</span></button>
             {open === "industries" && <div id="industries-menu" className="compact-menu"><Link href={localePath(locale, "industry-solutions")} onClick={closeAll}>{t.allIndustrySolutions}</Link>{t.industriesMenu.map((item) => <Link key={item.slug} href={localePath(locale, `industry-solutions/${item.slug}`)} onClick={closeAll}>{item.name}</Link>)}</div>}
           </div>
-          <div className="nav-group">
-            <button aria-expanded={open === "news"} aria-controls="news-menu" onClick={() => toggle("news")} onMouseEnter={() => setOpen("news")}>{t.news}<span aria-hidden="true">▾</span></button>
+          <div className="nav-group" onMouseEnter={() => openMenu("news")} onMouseLeave={scheduleClose}>
+            <button aria-expanded={open === "news"} aria-controls="news-menu" aria-haspopup="true" onClick={() => toggle("news")} onFocus={() => openMenu("news")}>{t.news}<span aria-hidden="true">▾</span></button>
             {open === "news" && <div id="news-menu" className="compact-menu"><Link href={localePath(locale, "news")} onClick={closeAll}>{t.news}</Link><Link href={localePath(locale, "blog")} onClick={closeAll}>{t.blog}</Link></div>}
           </div>
-          <Link href={localePath(locale, "about-contact")}>{t.about}</Link>
+          <Link href={localePath(locale, "about-contact")} onClick={closeAll}>{t.about}</Link>
         </nav>
-        <Link className="header-quote" href={localePath(locale, "request-quote")}>{t.quote}</Link>
+        <Link className="header-quote" href={localePath(locale, "request-quote")} onClick={closeAll}>{t.quote}</Link>
         <details className="locale"><summary>{localeNames[locale]}</summary><div className="locale-menu">{locales.map((item) => <Link key={item} href={localePath(item)}>{localeNames[item]}</Link>)}</div></details>
         <button ref={menuButton} className="mobile-toggle" aria-expanded={drawer} aria-controls="mobile-drawer" onClick={() => setDrawer(true)}>{t.menu}<span aria-hidden="true">☰</span></button>
       </div>

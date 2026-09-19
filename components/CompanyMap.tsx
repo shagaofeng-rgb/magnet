@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { companyMapUrl } from "@/lib/contact";
 
 const labels: Record<Locale, { title: string; open: string }> = {
   en: { title: "Company location", open: "Open in Google Maps" },
@@ -14,7 +15,7 @@ export function CompanyMap({ locale }: { locale: Locale }) {
     <div className="shell">
       <div className="section-head">
         <h2 id="company-map-title">{copy.title}</h2>
-        <a href="https://maps.app.goo.gl/P1YyVHoCdGBd9ef37" target="_blank" rel="noopener noreferrer">{copy.open} ↗</a>
+        <a href={companyMapUrl} target="_blank" rel="noopener noreferrer">{copy.open} ↗</a>
       </div>
       <iframe
         title={`BZMAGNET — ${copy.title}`}

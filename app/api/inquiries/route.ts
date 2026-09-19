@@ -35,15 +35,22 @@ export async function POST(request: NextRequest) {
 
     const leadId = await storeInternalLead(input as Record<string, unknown>, (input.attribution || {}) as Record<string, unknown>);
     const jobKey = `inquiry-email:${leadId}`;
-    await writeAdminJob("bzmagnet", "inquiry_email_notification", jobKey, { leadId, requestId });
+    let notificationSent = false;
     try {
-      const notification = await sendInquiryNotification(leadId, input, input.attribution || {});
-      await completeAdminJob("bzmagnet", jobKey, notification.sent ? "succeeded" : "failed", notification.sent ? { messageId: notification.messageId } : { code: notification.code });
-    } catch {
-      await completeAdminJob("bzmagnet", jobKey, "failed", { code: "email_delivery_failed" });
+      await writeAdminJob("bzmagnet", "inquiry_email_notification", jobKey, { leadId, requestId });
+      try {
+        const notification = await sendInquiryNotification(leadId, input, input.attribution || {});
+        notificationSent = notification.sent;
+        await completeAdminJob("bzmagnet", jobKey, notification.sent ? "succeeded" : "failed", notification.sent ? { messageId: notification.messageId } : { code: notification.code });
+      } catch {
+        await completeAdminJob("bzmagnet", jobKey, "failed", { code: "email_delivery_failed" });
+      }
+    } catch (error) {
+      console.error("Inquiry notification workflow failed after lead storage", { requestId, error: error instanceof Error ? error.message : "unknown_error" });
     }
-    return NextResponse.json({ success: true, data: { id: leadId }, requestId }, { status: 201 });
-  } catch {
-    return NextResponse.json({ success: false, error: "submission_failed", requestId }, { status: 400 });
+    return NextResponse.json({ success: true, data: { id: leadId, notificationSent }, requestId }, { status: 201 });
+  } catch (error) {
+    console.error("Inquiry submission failed before lead storage", { requestId, error: error instanceof Error ? error.message : "unknown_error" });
+    return NextResponse.json({ success: false, error: "submission_failed", requestId }, { status: 500 });
   }
 }

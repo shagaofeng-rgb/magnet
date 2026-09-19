@@ -168,9 +168,12 @@ export function SiteHeader({ locale }: { locale: Locale }) {
   }, []);
 
   useEffect(() => {
-    setOpen(null);
-    setDrawer(false);
-    setMobileSection(null);
+    const closeOnRouteChange = window.setTimeout(() => {
+      setOpen(null);
+      setDrawer(false);
+      setMobileSection(null);
+    }, 0);
+    return () => window.clearTimeout(closeOnRouteChange);
   }, [pathname]);
 
   useEffect(() => () => {

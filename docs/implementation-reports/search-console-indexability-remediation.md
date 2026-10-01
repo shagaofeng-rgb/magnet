@@ -20,8 +20,8 @@ This release makes BZMAGNET product URLs canonical, removes incomplete localized
 
 ## Google Search Console operations
 
-- `/api/cron/search-console-sync` imports performance data, then submits `/sitemap-index.xml`.
-- `/api/cron/search-console-inspect` samples critical canonical URLs for Search Console inspection data.
+- `/api/cron/search-console-sync` imports performance data, then submits `/sitemap-index.xml` once each Monday at 09:30 Asia/Shanghai.
+- URL inspection remains available to protected administration but is not scheduled automatically.
 - Each result is persisted in the site-scoped `site_settings` table without credentials.
 - A sitemap submission is reported as submitted, not indexed. The Google Indexing API is intentionally not used for ordinary product, category or news pages.
 

@@ -4,13 +4,9 @@ import fs from "node:fs";
 
 const read = (path) => fs.readFileSync(path, "utf8");
 
-test("only durable publishing and search-data cron routes are scheduled", () => {
+test("News automation is unscheduled and Search Console sync runs weekly", () => {
   const config = JSON.parse(read("vercel.json"));
-  assert.deepEqual(config.crons.map((job) => job.path), ["/api/cron/news-review", "/api/cron/news-publish", "/api/cron/search-console-sync", "/api/cron/search-console-inspect"]);
-  assert.equal(config.crons[0].schedule, "10 */6 * * *");
-  assert.equal(config.crons[1].schedule, "45 1,3,6 * * *");
-  assert.equal(config.crons[2].schedule, "30 8 * * *");
-  assert.equal(config.crons[3].schedule, "40 8 * * *");
+  assert.deepEqual(config.crons, [{ path: "/api/cron/search-console-sync", schedule: "30 1 * * 1" }]);
 });
 
 test("News automation has a fail-closed durable store, internal generator, lock and 48-hour gate", () => {

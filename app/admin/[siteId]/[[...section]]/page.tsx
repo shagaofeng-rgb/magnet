@@ -60,7 +60,7 @@ function AnalyticsWorkspace({ area, data, route }: { area: AnalyticsArea; data: 
   return <>
     <section className={String("admin-sync ").concat(data.connected ? "ready" : data.error ? "error" : "")}><IconActivity size={20} aria-hidden="true" />{data.connected ? <>第一方数据已连接 <small>最近有效事件：{displayTime(data.lastEventAt, "Asia/Shanghai")} · 默认排除测试、自动化及预览流量</small></> : data.error ? <>数据查询失败 <small>暂时无法读取真实数据，请稍后重试。</small></> : <>分析数据库尚未连接 <small>请检查数据库连接配置。</small></>}</section>
     <form className="admin-filter-panel" method="get">
-      <AdminDateFields range={data.filters.range || "today"} from={data.from} to={data.to} />
+      <AdminDateFields key={`${data.filters.range}:${data.from}:${data.to}`} range={data.filters.range || "today"} from={data.from} to={data.to} />
       <label>流量口径<select name="traffic" defaultValue={data.filters.traffic}><option value="valid">仅真实流量</option><option value="all">全部（含隔离）</option><option value="excluded">仅隔离流量</option></select></label>
       <label>渠道<input name="channel" defaultValue={data.filters.channel} placeholder="例如 organic" /></label>
       <label>国家/地区<input name="country" defaultValue={data.filters.country} placeholder="例如 US" maxLength={2} /></label>
@@ -126,7 +126,7 @@ export default async function AdminModulePage({ params, searchParams }: { params
       {analytics ? <AnalyticsWorkspace area={area[0] as AnalyticsArea} data={analytics} route={route} /> : legacy ? <>
         <section className={String("admin-sync ").concat(legacy.connected ? "ready" : "")}><IconActivity size={20} aria-hidden="true" />{legacy.connected ? <>站点数据已连接 <small>筛选范围：{legacy.from} 至 {legacy.to}{area[0] === "seo" ? ` · 最近同步：${displayTime(legacy.lastSynced, site.timezone)} · 最新搜索数据：${legacy.lastDataAt || "暂无"}` : ""}</small></> : <>数据库尚未连接 <small>请检查数据库连接配置。</small></>}</section>
         <form className="admin-filter-panel" method="get">
-          <AdminDateFields range={filters.range || "today"} from={legacy.from} to={legacy.to} />
+          <AdminDateFields key={`${filters.range}:${legacy.from}:${legacy.to}`} range={filters.range || "today"} from={legacy.from} to={legacy.to} />
           <label className="admin-filter-search">搜索<input name="search" defaultValue={filters.search} placeholder={area[0] === "seo" ? "页面 URL" : area[0] === "forms" ? "编号、产品或来源" : "名称、URL 或设置项"} /></label>
           <label>每页条数<select name="pageSize" defaultValue={String(legacy.pageSize)}><option value="25">25 条</option><option value="50">50 条</option><option value="100">100 条</option></select></label>
           <input type="hidden" name="page" value="1" />

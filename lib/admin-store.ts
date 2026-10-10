@@ -1,6 +1,7 @@
 import "server-only";
 
 import postgres from "postgres";
+import { resolveAdminDateRange, type AdminRangePreset } from "@/lib/admin-date-range";
 
 const cleanUrl = (value: string | undefined) => value?.trim().replace(/^(['"])(.*)\1$/, "$2") || undefined;
 const databaseUrl = [process.env.ADMIN_DATABASE_URL, process.env.NEWS_DATABASE_URL, process.env.POSTGRES_URL, process.env.DATABASE_URL].map(cleanUrl).find(Boolean);
@@ -10,10 +11,9 @@ export type AdminMetric = { label: string; value: string; href: string; detail?:
 export type AdminTrendPoint = { label: string; value: number; secondary?: number };
 export type AdminBreakdown = { title: string; items: Array<{ label: string; value: number }>; emptyText: string };
 export type AdminTable = { title: string; columns: string[]; rows: string[][]; emptyText: string };
-export type AdminRangePreset = "today" | "week" | "month" | "custom";
-export type AdminQuery = { range?: AdminRangePreset; from?: string; to?: string; page?: number; pageSize?: number };
+export type AdminQuery = { range?: AdminRangePreset; from?: string; to?: string; search?: string; page?: number; pageSize?: number };
 export type AdminModuleData = {
-  connected: boolean; lastSynced: string | null; metrics: AdminMetric[]; trend: AdminTrendPoint[];
+  connected: boolean; lastSynced: string | null; lastDataAt: string | null; metrics: AdminMetric[]; trend: AdminTrendPoint[];
   breakdowns: AdminBreakdown[]; table: AdminTable; rangeDays: number; from: string; to: string;
   page: number; pageSize: number; totalRows: number;
 };
@@ -26,24 +26,9 @@ const asNumber = (value: number | string | null | undefined) => Number(value || 
 const bars = <T extends { label: string; value: number | string | null }>(rows: T[]) => rows.map((row) => ({ label: row.label || "未标记", value: asNumber(row.value) }));
 
 function dates(input: AdminQuery) {
-  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" });
-  const preset = input.range || "week";
-  const parse = (value: string | undefined) => value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined;
-  const addDays = (value: string, days: number) => {
-    const date = new Date(`${value}T00:00:00+08:00`);
-    date.setUTCDate(date.getUTCDate() + days);
-    return date.toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" });
-  };
-  const weekday = new Date(`${today}T00:00:00+08:00`).getUTCDay() || 7;
-  let from = parse(input.from) || today;
-  let to = parse(input.to) || today;
-  if (preset === "week") from = addDays(today, -(weekday - 1));
-  if (preset === "month") from = `${today.slice(0, 8)}01`;
-  if (preset !== "custom") to = today;
-  if (from > to) [from, to] = [to, from];
+  const { from, to, days: rangeDays } = resolveAdminDateRange(input);
   const start = new Date(`${from}T00:00:00+08:00`);
   const end = new Date(`${to}T23:59:59.999+08:00`);
-  const rangeDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000));
   return { start, end, startDate: from, endDate: to, rangeDays };
 }
 
@@ -54,41 +39,53 @@ export async function getAdminModuleData(siteId: string, area: string, input: Ad
   const pageSize = [25, 50, 100].includes(Number(input.pageSize)) ? Number(input.pageSize) : 25;
   const page = Math.max(1, Math.floor(Number(input.page) || 1));
   const offset = (page - 1) * pageSize;
-  const unavailable: AdminModuleData = { connected: false, lastSynced: null, rangeDays, from: startDate, to: endDate, page, pageSize, totalRows: 0, metrics: [{ label: "数据连接", value: "未连接", href: pageHref("settings") }], trend: [], breakdowns: [], table: { title: "当前数据", columns: ["状态"], rows: [], emptyText: "数据库尚未连接，暂无可展示的真实数据。" } };
+  const search = input.search?.trim().slice(0, 120) || "";
+  const unavailable: AdminModuleData = {
+    connected: false, lastSynced: null, lastDataAt: null, rangeDays, from: startDate, to: endDate, page, pageSize, totalRows: 0,
+    metrics: area === "seo" ? ["点击", "展示", "平均排名", "记录"].map((label) => ({ label, value: "—", href: pageHref("seo") })) : [{ label: "数据连接", value: "未连接", href: pageHref("settings") }],
+    trend: [], breakdowns: [],
+    table: area === "seo" ? { title: "Search Console 页面表现", columns: ["页面", "点击", "展示", "平均排名", "日期"], rows: [], emptyText: "数据库尚未连接，暂无可展示的 Search Console 数据。" } : { title: "当前数据", columns: ["状态"], rows: [], emptyText: "数据库尚未连接，暂无可展示的真实数据。" },
+  };
   if (!sql) return unavailable;
 
-  const [views, sessions, leads, products, content, publishedNews, seoRows, linkIssues, pendingJobs, lastSync] = await Promise.all([
-    count(() => sql<{ count: string }[]>`select coalesce(sum(page_views), 0)::text as count from page_metrics where site_id = ${siteId} and metric_date >= ${startDate} and metric_date <= ${endDate}`),
-    count(() => sql<{ count: string }[]>`select count(distinct anonymous_session_id)::text as count from visitor_sessions where site_id = ${siteId} and started_at >= ${start} and started_at <= ${end}`),
+  const [views, sessions, leads, products, content, publishedNews, seoRows, linkIssues, pendingJobs, mailJobs, lastSync, seoTotals, seoLatest] = await Promise.all([
+    count(() => sql<{ count: string }[]>`select coalesce(sum(page_views), 0)::text as count from page_metrics where site_id = ${siteId} and source = 'first_party' and metric_date >= ${startDate} and metric_date <= ${endDate}`),
+    count(() => sql<{ count: string }[]>`select count(distinct anonymous_session_id)::text as count from visitor_sessions where site_id = ${siteId} and traffic_class = 'valid' and started_at >= ${start} and started_at <= ${end}`),
     count(() => sql<{ count: string }[]>`select count(*)::text as count from form_leads where site_id = ${siteId} and created_at >= ${start} and created_at <= ${end}`),
     count(() => sql<{ count: string }[]>`select count(*)::text as count from catalog_records where site_id = ${siteId} and status = 'published'`),
     count(() => sql<{ count: string }[]>`select count(*)::text as count from content_records where site_id = ${siteId} and status = 'published'`),
     count(() => sql<{ count: string }[]>`select count(*)::text as count from news_articles where site_id = ${siteId} and status = 'published'`),
-    count(() => sql<{ count: string }[]>`select count(*)::text as count from seo_metrics where site_id = ${siteId} and metric_date >= ${startDate} and metric_date <= ${endDate}`),
+    count(() => sql<{ count: string }[]>`select count(*)::text as count from seo_metrics where site_id = ${siteId} and source = 'google_search_console' and metric_date >= ${startDate} and metric_date <= ${endDate} and (${search} = '' or url ilike '%' || ${search} || '%')`),
     count(() => sql<{ count: string }[]>`select count(*)::text as count from link_audits where site_id = ${siteId} and status in ('open', 'recheck')`),
     count(() => sql<{ count: string }[]>`select count(*)::text as count from admin_jobs where site_id = ${siteId} and status in ('queued', 'running', 'failed')`),
+    count(() => sql<{ count: string }[]>`select count(*)::text as count from admin_jobs where site_id = ${siteId} and kind = 'inquiry_email_notification' and created_at >= ${start} and created_at <= ${end}`),
     sql<{ updated_at: string | null }[]>`select updated_at from site_settings where site_id = ${siteId} and setting_key = 'search_console_sync' limit 1`,
+    sql<{ clicks: string; impressions: string; position: string | null }[]>`select coalesce(sum(clicks), 0)::text as clicks, coalesce(sum(impressions), 0)::text as impressions, (sum(average_position * impressions) / nullif(sum(impressions), 0))::text as position from seo_metrics where site_id = ${siteId} and source = 'google_search_console' and metric_date >= ${startDate} and metric_date <= ${endDate} and (${search} = '' or url ilike '%' || ${search} || '%')`,
+    sql<{ latest: string | null }[]>`select max(metric_date)::text as latest from seo_metrics where site_id = ${siteId} and source = 'google_search_console'`,
   ]);
 
-  const trendRows = await sql<{ label: string; value: number; secondary: number }[]>`
+  const trendRows = area === "seo" ? await sql<{ label: string; value: number; secondary: number }[]>`
+    select to_char(metric_date, 'MM-DD') as label, coalesce(sum(clicks), 0)::int as value, coalesce(sum(impressions), 0)::int as secondary
+    from seo_metrics where site_id = ${siteId} and source = 'google_search_console' and metric_date >= ${startDate} and metric_date <= ${endDate} and (${search} = '' or url ilike '%' || ${search} || '%')
+    group by metric_date order by metric_date asc` : await sql<{ label: string; value: number; secondary: number }[]>`
     select to_char(metric_date, 'MM-DD') as label, coalesce(sum(page_views), 0)::int as value, coalesce(sum(conversions), 0)::int as secondary
-    from page_metrics where site_id = ${siteId} and metric_date >= ${startDate} and metric_date <= ${endDate}
+    from page_metrics where site_id = ${siteId} and source = 'first_party' and metric_date >= ${startDate} and metric_date <= ${endDate}
     group by metric_date order by metric_date asc`;
   const channelRows = await sql<{ label: string; value: number }[]>`
     select coalesce(nullif(channel, ''), 'direct') as label, count(*)::int as value
-    from visitor_sessions where site_id = ${siteId} and started_at >= ${start} and started_at <= ${end}
+    from visitor_sessions where site_id = ${siteId} and traffic_class = 'valid' and started_at >= ${start} and started_at <= ${end}
     group by 1 order by 2 desc limit 6`;
   const deviceRows = await sql<{ label: string; value: number }[]>`
     select coalesce(nullif(device_class, ''), 'unknown') as label, count(*)::int as value
-    from visitor_sessions where site_id = ${siteId} and started_at >= ${start} and started_at <= ${end}
+    from visitor_sessions where site_id = ${siteId} and traffic_class = 'valid' and started_at >= ${start} and started_at <= ${end}
     group by 1 order by 2 desc limit 6`;
   const localeRows = await sql<{ label: string; value: number }[]>`
     select coalesce(nullif(locale, ''), 'unknown') as label, count(*)::int as value
-    from visitor_sessions where site_id = ${siteId} and started_at >= ${start} and started_at <= ${end}
+    from visitor_sessions where site_id = ${siteId} and traffic_class = 'valid' and started_at >= ${start} and started_at <= ${end}
     group by 1 order by 2 desc limit 6`;
   const pageRows = await sql<{ label: string; value: number }[]>`
     select path as label, coalesce(sum(page_views), 0)::int as value
-    from page_metrics where site_id = ${siteId} and metric_date >= ${startDate} and metric_date <= ${endDate}
+    from page_metrics where site_id = ${siteId} and source = 'first_party' and metric_date >= ${startDate} and metric_date <= ${endDate}
     group by path order by value desc limit 6`;
 
   const commonMetrics = [
@@ -100,11 +97,11 @@ export async function getAdminModuleData(siteId: string, area: string, input: Ad
   const metricSets: Record<string, AdminMetric[]> = {
     overview: [...commonMetrics, { label: "已发布内容", value: String(content + publishedNews), href: pageHref("news") }, { label: "待处理项目", value: String(linkIssues + pendingJobs), href: pageHref("links") }],
     traffic: [{ label: "匿名会话", value: String(sessions), href: pageHref("visitors"), detail: `近 ${rangeDays} 天` }, { label: "页面浏览", value: String(views), href: pageHref("page-performance") }, { label: "来源渠道", value: String(channelRows.length), href: pageHref("traffic") }, { label: "设备类型", value: String(deviceRows.length), href: pageHref("traffic") }],
-    seo: [{ label: "搜索记录", value: String(seoRows), href: pageHref("seo"), detail: `近 ${rangeDays} 天` }, { label: "链接问题", value: String(linkIssues), href: pageHref("links") }, { label: "同步状态", value: lastSync[0]?.updated_at ? "已同步" : "待同步", href: pageHref("seo") }, { label: "页面浏览", value: String(views), href: pageHref("page-performance") }],
+    seo: [{ label: "点击", value: String(seoTotals[0]?.clicks ?? 0), href: pageHref("seo"), detail: "Google Search Console" }, { label: "展示", value: String(seoTotals[0]?.impressions ?? 0), href: pageHref("seo") }, { label: "平均排名", value: seoTotals[0]?.position == null ? "—" : Number(seoTotals[0].position).toFixed(1), href: pageHref("seo"), detail: "按展示量加权" }, { label: "记录", value: String(seoRows), href: pageHref("seo") }],
     products: [{ label: "已发布产品", value: String(products), href: pageHref("products") }, { label: "站点页面浏览", value: String(views), href: pageHref("page-performance"), detail: `近 ${rangeDays} 天` }],
     news: [{ label: "已发布内容", value: String(content), href: pageHref("news") }, { label: "已发布 News", value: String(publishedNews), href: pageHref("news") }, { label: "站点页面浏览", value: String(views), href: pageHref("page-performance") }],
     "news-operations": [{ label: "待处理任务", value: String(pendingJobs), href: pageHref("news-operations") }, { label: "已发布 News", value: String(publishedNews), href: pageHref("news") }],
-    forms: [{ label: "询盘提交", value: String(leads), href: pageHref("forms"), detail: `近 ${rangeDays} 天` }, { label: "邮件任务", value: String(pendingJobs), href: pageHref("news-operations") }],
+    forms: [{ label: "已保存询盘", value: String(leads), href: pageHref("forms"), detail: `近 ${rangeDays} 天` }, { label: "邮件通知任务", value: String(mailJobs), href: pageHref("forms"), detail: `近 ${rangeDays} 天` }],
     links: [{ label: "待复查链接", value: String(linkIssues), href: pageHref("links") }, { label: "追踪页面", value: String(pageRows.length), href: pageHref("page-performance") }],
     visitors: [{ label: "匿名会话", value: String(sessions), href: pageHref("visitors"), detail: `近 ${rangeDays} 天` }, { label: "页面浏览", value: String(views), href: pageHref("page-performance") }],
     "page-performance": [{ label: "页面浏览", value: String(views), href: pageHref("page-performance"), detail: `近 ${rangeDays} 天` }, { label: "有访问页面", value: String(pageRows.length), href: pageHref("page-performance") }, { label: "询盘提交", value: String(leads), href: pageHref("forms") }],
@@ -113,19 +110,22 @@ export async function getAdminModuleData(siteId: string, area: string, input: Ad
   };
 
   let table: AdminTable;
+  let totalRows = 0;
   let breakdowns: AdminBreakdown[] = [
     { title: "来源渠道", items: bars(channelRows), emptyText: "当前范围内暂无来源数据。" },
     { title: "访问设备", items: bars(deviceRows), emptyText: "当前范围内暂无设备数据。" },
     { title: "访问语言", items: bars(localeRows), emptyText: "当前范围内暂无语言数据。" },
   ];
   if (area === "products") {
-    const rows = await sql<{ title: string; slug: string | null; status: string; locale: string; updated_at: string }[]>`select title, slug, status, locale, updated_at from catalog_records where site_id = ${siteId} order by updated_at desc limit ${pageSize} offset ${offset}`;
+    totalRows = await count(() => sql<{ count: string }[]>`select count(*)::text as count from catalog_records where site_id = ${siteId} and updated_at >= ${start} and updated_at <= ${end} and (${search} = '' or title ilike '%' || ${search} || '%' or coalesce(slug, '') ilike '%' || ${search} || '%')`);
+    const rows = await sql<{ title: string; slug: string | null; status: string; locale: string; updated_at: string }[]>`select title, slug, status, locale, updated_at from catalog_records where site_id = ${siteId} and updated_at >= ${start} and updated_at <= ${end} and (${search} = '' or title ilike '%' || ${search} || '%' or coalesce(slug, '') ilike '%' || ${search} || '%') order by updated_at desc limit ${pageSize} offset ${offset}`;
     const statusRows = await sql<{ label: string; value: number }[]>`select status as label, count(*)::int as value from catalog_records where site_id = ${siteId} group by status order by value desc`;
     const typeRows = await sql<{ label: string; value: number }[]>`select record_type as label, count(*)::int as value from catalog_records where site_id = ${siteId} group by record_type order by value desc`;
     breakdowns = [{ title: "发布状态", items: bars(statusRows), emptyText: "尚无产品记录。" }, { title: "目录类型", items: bars(typeRows), emptyText: "尚无目录记录。" }, { title: "页面访问", items: bars(pageRows), emptyText: "当前范围内暂无产品页面访问。" }];
     table = { title: "产品目录", columns: ["名称", "链接标识", "语言", "状态", "更新时间"], rows: rows.map((row) => [row.title, row.slug || "—", row.locale, row.status, dateTime(row.updated_at)]), emptyText: "尚未录入产品记录。" };
   } else if (area === "news") {
-    const rows = await sql<{ title: string; content_type: string; status: string; locale: string; updated_at: string }[]>`select title, content_type, status, locale, updated_at from content_records where site_id = ${siteId} order by updated_at desc limit ${pageSize} offset ${offset}`;
+    totalRows = await count(() => sql<{ count: string }[]>`select count(*)::text as count from content_records where site_id = ${siteId} and updated_at >= ${start} and updated_at <= ${end} and (${search} = '' or title ilike '%' || ${search} || '%')`);
+    const rows = await sql<{ title: string; content_type: string; status: string; locale: string; updated_at: string }[]>`select title, content_type, status, locale, updated_at from content_records where site_id = ${siteId} and updated_at >= ${start} and updated_at <= ${end} and (${search} = '' or title ilike '%' || ${search} || '%') order by updated_at desc limit ${pageSize} offset ${offset}`;
     const statusRows = await sql<{ label: string; value: number }[]>`select status as label, count(*)::int as value from content_records where site_id = ${siteId} group by status order by value desc`;
     const typeRows = await sql<{ label: string; value: number }[]>`select content_type as label, count(*)::int as value from content_records where site_id = ${siteId} group by content_type order by value desc`;
     const jobRows = await sql<{ label: string; value: number }[]>`select status as label, count(*)::int as value from admin_jobs where site_id = ${siteId} group by status order by value desc`;
@@ -133,10 +133,11 @@ export async function getAdminModuleData(siteId: string, area: string, input: Ad
     table = { title: "内容记录", columns: ["标题", "类型", "语言", "状态", "更新时间"], rows: rows.map((row) => [row.title, row.content_type, row.locale, row.status, dateTime(row.updated_at)]), emptyText: "尚无已保存的内容记录。" };
   } else if (area === "news-operations") {
     const installed = await sql<{ source_catalog: string | null }[]>`select to_regclass('public.news_sources')::text as source_catalog`;
+    totalRows = installed[0]?.source_catalog ? await count(() => sql<{ count: string }[]>`select count(*)::text as count from news_sources source join news_source_catalog_versions version on version.id = source.catalog_version_id where source.site_id = ${siteId} and version.status = 'active' and (source.last_checked_at is null or (source.last_checked_at >= ${start} and source.last_checked_at <= ${end})) and (${search} = '' or source.name ilike '%' || ${search} || '%')`) : 0;
     const rows = installed[0]?.source_catalog ? await sql<{ name: string; source_ordinal: number; validation_status: string; active: boolean; robots_allowed: boolean | null; feed_url: string | null; last_checked_at: string | null; last_used_at: string | null }[]>`
       select source.name, source.source_ordinal, source.validation_status, source.active, source.robots_allowed, source.feed_url, source.last_checked_at, source.last_used_at
       from news_sources source join news_source_catalog_versions version on version.id = source.catalog_version_id
-      where source.site_id = ${siteId} and version.status = 'active' order by source.source_ordinal asc limit ${pageSize} offset ${offset}` : [];
+      where source.site_id = ${siteId} and version.status = 'active' and (source.last_checked_at is null or (source.last_checked_at >= ${start} and source.last_checked_at <= ${end})) and (${search} = '' or source.name ilike '%' || ${search} || '%') order by source.source_ordinal asc limit ${pageSize} offset ${offset}` : [];
     const statusRows = installed[0]?.source_catalog ? await sql<{ label: string; value: number }[]>`
       select validation_status as label, count(*)::int as value from news_sources source join news_source_catalog_versions version on version.id = source.catalog_version_id
       where source.site_id = ${siteId} and version.status = 'active' group by validation_status order by value desc` : [];
@@ -148,18 +149,21 @@ export async function getAdminModuleData(siteId: string, area: string, input: Ad
     breakdowns = [{ title: "来源核验状态", items: bars(statusRows), emptyText: "尚未导入来源目录。" }, { title: "可用来源", items: bars(activeRows), emptyText: "尚未导入来源目录。" }, { title: "News 运行记录", items: bars(jobRows), emptyText: "尚无 News 运行记录。" }];
     table = { title: "活动来源目录", columns: ["编号", "来源", "核验状态", "采集资格", "Robots", "订阅入口", "最近检查", "最近使用"], rows: rows.map((row) => [String(row.source_ordinal), row.name, row.validation_status, row.active && row.feed_url ? "已启用" : "未启用", row.robots_allowed === true ? "允许" : row.robots_allowed === false ? "禁止" : "待检查", row.feed_url ? "已发现" : "待发现", dateTime(row.last_checked_at), dateTime(row.last_used_at)]), emptyText: "当前没有活动来源目录。先导入草稿、完成低频核验，再显式启用版本。" };
   } else if (area === "forms") {
-    const rows = await sql<{ id: string; lead_status: string; created_at: string; attribution: { locale?: string; source?: string; product_name?: string } | null }[]>`select id::text, lead_status, created_at, attribution from form_leads where site_id = ${siteId} and created_at >= ${start} and created_at <= ${end} order by created_at desc limit ${pageSize} offset ${offset}`;
+    totalRows = await count(() => sql<{ count: string }[]>`select count(*)::text as count from form_leads where site_id = ${siteId} and created_at >= ${start} and created_at <= ${end} and (${search} = '' or id::text ilike '%' || ${search} || '%' or coalesce(attribution->>'product_name', '') ilike '%' || ${search} || '%' or coalesce(attribution->>'source', '') ilike '%' || ${search} || '%')`);
+    const rows = await sql<{ id: string; lead_status: string; created_at: string; attribution: { locale?: string; source?: string; product_name?: string } | null; email_status: string | null }[]>`select lead.id::text as id, lead.lead_status, lead.created_at, lead.attribution, email.status as email_status from form_leads lead left join lateral (select job.status from admin_jobs job where job.site_id = ${siteId} and job.kind = 'inquiry_email_notification' and job.idempotency_key = 'inquiry-email:' || lead.id::text order by job.created_at desc limit 1) email on true where lead.site_id = ${siteId} and lead.created_at >= ${start} and lead.created_at <= ${end} and (${search} = '' or lead.id::text ilike '%' || ${search} || '%' or coalesce(lead.attribution->>'product_name', '') ilike '%' || ${search} || '%' or coalesce(lead.attribution->>'source', '') ilike '%' || ${search} || '%') order by lead.created_at desc limit ${pageSize} offset ${offset}`;
     const statusRows = await sql<{ label: string; value: number }[]>`select lead_status as label, count(*)::int as value from form_leads where site_id = ${siteId} and created_at >= ${start} and created_at <= ${end} group by lead_status order by value desc`;
     const leadLocaleRows = await sql<{ label: string; value: number }[]>`select coalesce(nullif(attribution->>'locale', ''), 'unknown') as label, count(*)::int as value from form_leads where site_id = ${siteId} and created_at >= ${start} and created_at <= ${end} group by 1 order by value desc`;
     breakdowns = [{ title: "询盘状态", items: bars(statusRows), emptyText: "当前范围内暂无询盘。" }, { title: "询盘语言", items: bars(leadLocaleRows), emptyText: "当前范围内暂无询盘。" }, { title: "来源渠道", items: bars(channelRows), emptyText: "当前范围内暂无来源数据。" }];
-    table = { title: "询盘收件箱", columns: ["编号", "状态", "语言", "产品", "来源页面", "提交时间"], rows: rows.map((row) => [row.id.slice(0, 8), row.lead_status, row.attribution?.locale || "—", row.attribution?.product_name || "—", row.attribution?.source || "—", dateTime(row.created_at)]), emptyText: "当前范围内尚未收到询盘。" };
+    table = { title: "询盘收件箱", columns: ["编号", "状态", "邮件通知", "语言", "产品", "来源", "提交时间"], rows: rows.map((row) => [row.id.slice(0, 8), row.lead_status, row.email_status === "succeeded" ? "已发送" : row.email_status === "failed" ? "发送失败" : row.email_status ? "处理中" : "未记录", row.attribution?.locale || "—", row.attribution?.product_name || "—", row.attribution?.source || "—", dateTime(row.created_at)]), emptyText: "当前范围内尚未收到询盘。" };
   } else if (area === "seo") {
-    const rows = await sql<{ url: string; clicks: number | null; impressions: number | null; average_position: number | null; metric_date: string }[]>`select url, clicks, impressions, average_position, metric_date from seo_metrics where site_id = ${siteId} and metric_date >= ${startDate} and metric_date <= ${endDate} order by metric_date desc, impressions desc nulls last limit ${pageSize} offset ${offset}`;
-    const seoPages = await sql<{ label: string; value: number }[]>`select url as label, coalesce(sum(impressions), 0)::int as value from seo_metrics where site_id = ${siteId} and metric_date >= ${startDate} and metric_date <= ${endDate} group by url order by value desc limit 6`;
+    totalRows = seoRows;
+    const rows = await sql<{ url: string; clicks: number | null; impressions: number | null; average_position: number | null; metric_date: string }[]>`select url, clicks, impressions, average_position, metric_date from seo_metrics where site_id = ${siteId} and source = 'google_search_console' and metric_date >= ${startDate} and metric_date <= ${endDate} and (${search} = '' or url ilike '%' || ${search} || '%') order by metric_date desc, impressions desc nulls last limit ${pageSize} offset ${offset}`;
+    const seoPages = await sql<{ label: string; value: number }[]>`select url as label, coalesce(sum(impressions), 0)::int as value from seo_metrics where site_id = ${siteId} and source = 'google_search_console' and metric_date >= ${startDate} and metric_date <= ${endDate} and (${search} = '' or url ilike '%' || ${search} || '%') group by url order by value desc limit 6`;
     breakdowns = [{ title: "搜索展示页面", items: bars(seoPages), emptyText: "尚未同步 Search Console 数据。" }, { title: "站内页面访问", items: bars(pageRows), emptyText: "当前范围内暂无页面访问。" }, { title: "链接审计", items: [{ label: "待复查", value: linkIssues }], emptyText: "尚未运行链接审计。" }];
     table = { title: "Search Console 页面表现", columns: ["页面", "点击", "展示", "平均排名", "日期"], rows: rows.map((row) => [row.url, String(row.clicks ?? 0), String(row.impressions ?? 0), row.average_position == null ? "—" : Number(row.average_position).toFixed(1), dateOnly(row.metric_date)]), emptyText: "尚未同步到 Search Console 数据。" };
   } else if (area === "links") {
-    const rows = await sql<{ source_url: string; target_url: string | null; http_status: number | null; severity: string; status: string; last_checked_at: string }[]>`select source_url, target_url, http_status, severity, status, last_checked_at from link_audits where site_id = ${siteId} order by last_checked_at desc limit ${pageSize} offset ${offset}`;
+    totalRows = await count(() => sql<{ count: string }[]>`select count(*)::text as count from link_audits where site_id = ${siteId} and last_checked_at >= ${start} and last_checked_at <= ${end} and (${search} = '' or source_url ilike '%' || ${search} || '%' or coalesce(target_url, '') ilike '%' || ${search} || '%')`);
+    const rows = await sql<{ source_url: string; target_url: string | null; http_status: number | null; severity: string; status: string; last_checked_at: string }[]>`select source_url, target_url, http_status, severity, status, last_checked_at from link_audits where site_id = ${siteId} and last_checked_at >= ${start} and last_checked_at <= ${end} and (${search} = '' or source_url ilike '%' || ${search} || '%' or coalesce(target_url, '') ilike '%' || ${search} || '%') order by last_checked_at desc limit ${pageSize} offset ${offset}`;
     const severityRows = await sql<{ label: string; value: number }[]>`select severity as label, count(*)::int as value from link_audits where site_id = ${siteId} group by severity order by value desc`;
     const typeRows = await sql<{ label: string; value: number }[]>`select link_type as label, count(*)::int as value from link_audits where site_id = ${siteId} group by link_type order by value desc`;
     breakdowns = [{ title: "问题优先级", items: bars(severityRows), emptyText: "尚未运行链接审计。" }, { title: "链接类型", items: bars(typeRows), emptyText: "尚未运行链接审计。" }, { title: "访问页面", items: bars(pageRows), emptyText: "当前范围内暂无页面访问。" }];
@@ -186,7 +190,8 @@ export async function getAdminModuleData(siteId: string, area: string, input: Ad
     breakdowns = [{ title: "入口页面", items: bars(pageRows), emptyText: "当前范围内暂无访问数据。" }, { title: "来源渠道", items: bars(channelRows), emptyText: "当前范围内暂无来源数据。" }, { title: "访问设备", items: bars(deviceRows), emptyText: "当前范围内暂无设备数据。" }];
     table = { title: "访问路径", columns: ["入口页面", "最后页面", "会话", "事件数"], rows: rows.map((row) => [row.landing_path || "—", row.exit_path || "—", String(row.sessions), String(row.events)]), emptyText: "当前范围内暂无路径数据。" };
   } else if (area === "settings") {
-    const rows = await sql<{ setting_key: string; updated_at: string }[]>`select setting_key, updated_at from site_settings where site_id = ${siteId} order by updated_at desc limit ${pageSize} offset ${offset}`;
+    totalRows = await count(() => sql<{ count: string }[]>`select count(*)::text as count from site_settings where site_id = ${siteId} and updated_at >= ${start} and updated_at <= ${end} and (${search} = '' or setting_key ilike '%' || ${search} || '%')`);
+    const rows = await sql<{ setting_key: string; updated_at: string }[]>`select setting_key, updated_at from site_settings where site_id = ${siteId} and updated_at >= ${start} and updated_at <= ${end} and (${search} = '' or setting_key ilike '%' || ${search} || '%') order by updated_at desc limit ${pageSize} offset ${offset}`;
     breakdowns = [{ title: "连接状态", items: [{ label: "数据库", value: 1 }, { label: "Search Console", value: lastSync[0]?.updated_at ? 1 : 0 }], emptyText: "暂无已保存设置。" }, { title: "站点数据", items: [{ label: "产品", value: products }, { label: "内容", value: content + publishedNews }, { label: "询盘", value: leads }], emptyText: "暂无站点数据。" }, { title: "待处理项目", items: [{ label: "任务", value: pendingJobs }, { label: "链接", value: linkIssues }], emptyText: "暂无待处理项目。" }];
     table = { title: "已保存的站点设置", columns: ["设置项", "更新时间"], rows: rows.map((row) => [row.setting_key, dateTime(row.updated_at)]), emptyText: "当前没有可展示的站点设置记录。" };
   } else {
@@ -195,12 +200,7 @@ export async function getAdminModuleData(siteId: string, area: string, input: Ad
     table = { title: "最近后台操作", columns: ["状态", "对象", "操作", "时间"], rows: rows.map((row) => [row.status, row.target_type, row.action, dateTime(row.created_at)]), emptyText: "尚无后台操作记录。" };
   }
 
-  const totals: Record<string, number> = {
-    overview: Math.max(products, content + publishedNews), traffic: sessions, seo: seoRows, products,
-    news: content, "news-operations": pendingJobs, forms: leads, links: linkIssues, visitors: sessions,
-    "page-performance": pageRows.length, paths: sessions, settings: 1,
-  };
-  return { connected: true, lastSynced: lastSync[0]?.updated_at ?? null, rangeDays, from: startDate, to: endDate, page, pageSize, totalRows: totals[area] || 0, metrics: metricSets[area] ?? commonMetrics, trend: trendRows, breakdowns, table };
+  return { connected: true, lastSynced: lastSync[0]?.updated_at ?? null, lastDataAt: seoLatest[0]?.latest ?? null, rangeDays, from: startDate, to: endDate, page, pageSize, totalRows, metrics: metricSets[area] ?? commonMetrics, trend: trendRows, breakdowns, table };
 }
 
 export async function writeAdminAudit(siteId: string, actorId: string, action: string, targetType: string, targetId: string | null, reason: string) {

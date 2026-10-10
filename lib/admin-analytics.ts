@@ -1,6 +1,7 @@
 import "server-only";
 
 import postgres from "postgres";
+import { resolveAdminDateRange, type AdminRangePreset } from "@/lib/admin-date-range";
 
 const cleanUrl = (value: string | undefined) => value?.trim().replace(/^(['"])(.*)\1$/, "$2") || undefined;
 const databaseUrl = [process.env.ANALYTICS_CONNECTION_URL, process.env.ADMIN_DATABASE_URL, process.env.NEWS_DATABASE_URL, process.env.POSTGRES_URL, process.env.DATABASE_URL].map(cleanUrl).find(Boolean);
@@ -9,7 +10,7 @@ const SITE_ID = "bzmagnet";
 export type AnalyticsArea = "overview" | "traffic" | "visitors" | "page-performance" | "paths";
 export type TrafficView = "valid" | "all" | "excluded";
 
-export type DateRangePreset = "today" | "week" | "month" | "custom";
+export type DateRangePreset = AdminRangePreset;
 export type AnalyticsFilters = {
   range?: DateRangePreset; from?: string; to?: string; channel?: string; country?: string; traffic?: TrafficView;
   search?: string; page?: number; pageSize?: number; session?: string; visitor?: string;
@@ -27,7 +28,7 @@ export type VisitorProfileRow = {
 };
 export type VisitorJourney = { visitor: VisitorProfileRow; sessions: AnalyticsRow[]; events: Array<{ event: string; path: string; at: string; session: string }> };
 export type AnalyticsDashboard = {
-  connected: boolean; from: string; to: string; filters: Required<Pick<AnalyticsFilters, "traffic" | "page" | "pageSize">> & AnalyticsFilters;
+  connected: boolean; error: boolean; from: string; to: string; filters: Required<Pick<AnalyticsFilters, "traffic" | "page" | "pageSize">> & AnalyticsFilters;
   lastEventAt: string | null; totals: { views: number; sessions: number; visitors: number; returning: number; leads: number; excluded: number };
   trend: Array<{ label: string; views: number; visitors: number; leads: number }>;
   channels: Array<{ label: string; value: number }>; countries: Array<{ label: string; value: number }>;
@@ -36,48 +37,23 @@ export type AnalyticsDashboard = {
   timeline: Array<{ event: string; path: string; at: string }>; visitorJourney: VisitorJourney | null;
 };
 
-const dateParts = (value = new Date()) => {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(value);
-  const lookup = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${lookup.year}-${lookup.month}-${lookup.day}`;
-};
-const addCalendarDays = (value: string, amount: number) => {
-  const [year, month, day] = value.split("-").map(Number);
-  const next = new Date(Date.UTC(year, month - 1, day + amount));
-  return next.toISOString().slice(0, 10);
-};
-const safeDate = (value: string | undefined, fallback: string) => /^\d{4}-\d{2}-\d{2}$/.test(value || "") ? value! : fallback;
 const number = (value: string | number | null | undefined) => Number(value || 0);
 const selectedTraffic = (value: string | undefined): TrafficView => value === "all" || value === "excluded" ? value : "valid";
-const selectedRange = (value: string | undefined): DateRangePreset => value === "week" || value === "month" || value === "custom" ? value : "today";
 const selectedPageSize = (value: number | undefined) => [25, 50, 100].includes(Number(value)) ? Number(value) : 25;
 const selectedPage = (value: number | undefined) => Math.max(1, Number(value) || 1);
 const displayTime = (value: string | Date | null) => value ? new Date(value).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false }) : "—";
 
-function period(input: AnalyticsFilters) {
-  const today = dateParts();
-  const range = selectedRange(input.range);
-  if (range === "custom") {
-    const from = safeDate(input.from, today), to = safeDate(input.to, today);
-    return from <= to ? { range, from, to } : { range, from: to, to: from };
-  }
-  if (range === "month") return { range, from: `${today.slice(0, 8)}01`, to: today };
-  if (range === "week") {
-    const [year, month, day] = today.split("-").map(Number);
-    const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay() || 7;
-    return { range, from: addCalendarDays(today, 1 - weekday), to: today };
-  }
-  return { range, from: today, to: today };
-}
 function filterLabel(value: string | undefined) { return value?.trim().slice(0, 80) || ""; }
 
 export async function getAnalyticsDashboard(input: AnalyticsFilters = {}): Promise<AnalyticsDashboard> {
-  const { range, from, to } = period(input);
+  const { range, from, to } = resolveAdminDateRange(input);
+  const start = new Date(`${from}T00:00:00+08:00`);
+  const end = new Date(`${to}T23:59:59.999+08:00`);
   const traffic = selectedTraffic(input.traffic);
   const page = selectedPage(input.page), pageSize = selectedPageSize(input.pageSize), offset = (page - 1) * pageSize;
   const channel = filterLabel(input.channel), country = filterLabel(input.country).toUpperCase(), search = filterLabel(input.search);
     const unavailable: AnalyticsDashboard = {
-    connected: false, from, to, filters: { ...input, range, traffic, page, pageSize }, lastEventAt: null,
+    connected: false, error: false, from, to, filters: { ...input, range, traffic, page, pageSize }, lastEventAt: null,
     totals: { views: 0, sessions: 0, visitors: 0, returning: 0, leads: 0, excluded: 0 },
     trend: [], channels: [], countries: [], devices: [], pages: [], visitors: [], totalRows: 0, profiles: [], profileTotalRows: 0, timeline: [], visitorJourney: null,
   };
@@ -87,7 +63,7 @@ export async function getAnalyticsDashboard(input: AnalyticsFilters = {}): Promi
     select id::text, anonymous_session_id::text, visitor_key, visit_number, is_returning, country_code, channel, source,
       landing_path, exit_path, device_class, locale, event_count, started_at, traffic_class, exclusion_reason
     from visitor_sessions
-    where site_id = ${SITE_ID} and started_at >= ${from}::date and started_at < (${to}::date + interval '1 day')
+    where site_id = ${SITE_ID} and started_at >= ${start} and started_at <= ${end}
       and (${traffic} = 'all' or (${traffic} = 'valid' and traffic_class = 'valid') or (${traffic} = 'excluded' and traffic_class <> 'valid'))
       and (${channel} = '' or channel = ${channel})
       and (${country} = '' or country_code = ${country})
@@ -95,33 +71,33 @@ export async function getAnalyticsDashboard(input: AnalyticsFilters = {}): Promi
     order by started_at desc limit ${pageSize} offset ${offset}`;
 
   try {
-    const [totalsRows, excludedRows, trendRows, channelRows, countryRows, deviceRows, pageRows, visitorRows, countRows, lastEventRows] = await Promise.all([
-      sql<{ views: string; sessions: string; visitors: string; returning: string; leads: string }[]>`
+    const [totalsRows, leadRows, excludedRows, trendRows, channelRows, countryRows, deviceRows, pageRows, visitorRows, countRows, lastEventRows] = await Promise.all([
+      sql<{ views: string; sessions: string; visitors: string; returning: string }[]>`
         select coalesce((select sum(page_views) from page_metrics where site_id = ${SITE_ID} and source = 'first_party' and metric_date >= ${from}::date and metric_date <= ${to}::date), 0)::text as views,
           count(*)::text as sessions, count(distinct visitor_key)::text as visitors,
-          count(*) filter (where is_returning)::text as returning,
-          coalesce((select sum(conversions) from page_metrics where site_id = ${SITE_ID} and source = 'first_party' and metric_date >= ${from}::date and metric_date <= ${to}::date), 0)::text as leads
-        from visitor_sessions where site_id = ${SITE_ID} and traffic_class = 'valid' and started_at >= ${from}::date and started_at < (${to}::date + interval '1 day')`,
-      sql<{ count: string }[]>`select count(*)::text as count from visitor_sessions where site_id = ${SITE_ID} and traffic_class <> 'valid' and started_at >= ${from}::date and started_at < (${to}::date + interval '1 day')`,
+          count(*) filter (where is_returning)::text as returning
+        from visitor_sessions where site_id = ${SITE_ID} and traffic_class = 'valid' and started_at >= ${start} and started_at <= ${end}`,
+      sql<{ count: string }[]>`select count(*)::text as count from form_leads where site_id = ${SITE_ID} and created_at >= ${start} and created_at <= ${end}`,
+      sql<{ count: string }[]>`select count(*)::text as count from visitor_sessions where site_id = ${SITE_ID} and traffic_class <> 'valid' and started_at >= ${start} and started_at <= ${end}`,
       sql<{ label: string; views: number; visitors: number; leads: number }[]>`
         select to_char(metric_date, 'MM-DD') as label, coalesce(sum(page_views),0)::int as views, coalesce(sum(unique_visitors),0)::int as visitors, coalesce(sum(conversions),0)::int as leads
         from page_metrics where site_id = ${SITE_ID} and source = 'first_party' and metric_date >= ${from}::date and metric_date <= ${to}::date group by metric_date order by metric_date`,
       sql<{ label: string; value: number }[]>`
         select coalesce(nullif(channel,''),'direct') as label, count(*)::int as value from visitor_sessions
-        where site_id = ${SITE_ID} and traffic_class = 'valid' and started_at >= ${from}::date and started_at < (${to}::date + interval '1 day') group by 1 order by 2 desc limit 8`,
+        where site_id = ${SITE_ID} and traffic_class = 'valid' and started_at >= ${start} and started_at <= ${end} group by 1 order by 2 desc limit 8`,
       sql<{ label: string; value: number }[]>`
         select coalesce(nullif(country_code,''),'未知') as label, count(*)::int as value from visitor_sessions
-        where site_id = ${SITE_ID} and traffic_class = 'valid' and started_at >= ${from}::date and started_at < (${to}::date + interval '1 day') group by 1 order by 2 desc limit 8`,
+        where site_id = ${SITE_ID} and traffic_class = 'valid' and started_at >= ${start} and started_at <= ${end} group by 1 order by 2 desc limit 8`,
       sql<{ label: string; value: number }[]>`
         select coalesce(nullif(device_class,''),'unknown') as label, count(*)::int as value from visitor_sessions
-        where site_id = ${SITE_ID} and traffic_class = 'valid' and started_at >= ${from}::date and started_at < (${to}::date + interval '1 day') group by 1 order by 2 desc limit 6`,
+        where site_id = ${SITE_ID} and traffic_class = 'valid' and started_at >= ${start} and started_at <= ${end} group by 1 order by 2 desc limit 6`,
       sql<{ path: string; views: number; visitors: number; leads: number }[]>`
         select path, sum(page_views)::int as views, sum(unique_visitors)::int as visitors, sum(conversions)::int as leads
         from page_metrics where site_id = ${SITE_ID} and source = 'first_party' and metric_date >= ${from}::date and metric_date <= ${to}::date group by path order by views desc limit 12`,
       sessionFilter(),
       sql<{ count: string }[]>`
         select count(*)::text as count from visitor_sessions
-        where site_id = ${SITE_ID} and started_at >= ${from}::date and started_at < (${to}::date + interval '1 day')
+        where site_id = ${SITE_ID} and started_at >= ${start} and started_at <= ${end}
           and (${traffic} = 'all' or (${traffic} = 'valid' and traffic_class = 'valid') or (${traffic} = 'excluded' and traffic_class <> 'valid'))
           and (${channel} = '' or channel = ${channel}) and (${country} = '' or country_code = ${country})
           and (${search} = '' or coalesce(landing_path,'') ilike '%' || ${search} || '%' or coalesce(exit_path,'') ilike '%' || ${search} || '%' or coalesce(source,'') ilike '%' || ${search} || '%')`,
@@ -146,13 +122,13 @@ export async function getAnalyticsDashboard(input: AnalyticsFilters = {}): Promi
           (array_agg(source order by last_event_at desc))[1] as source, (array_agg(landing_path order by last_event_at desc))[1] as landing,
           (array_agg(exit_path order by last_event_at desc))[1] as exit, (array_agg(device_class order by last_event_at desc))[1] as device,
           (array_agg(locale order by last_event_at desc))[1] as locale
-        from visitor_sessions where site_id = ${SITE_ID} and visitor_key is not null and started_at >= ${from}::date and started_at < (${to}::date + interval '1 day')
+        from visitor_sessions where site_id = ${SITE_ID} and visitor_key is not null and started_at >= ${start} and started_at <= ${end}
           and (${traffic} = 'all' or (${traffic} = 'valid' and traffic_class = 'valid') or (${traffic} = 'excluded' and traffic_class <> 'valid'))
           and (${channel} = '' or channel = ${channel}) and (${country} = '' or country_code = ${country})
           and (${search} = '' or coalesce(landing_path,'') ilike '%' || ${search} || '%' or coalesce(exit_path,'') ilike '%' || ${search} || '%' or coalesce(source,'') ilike '%' || ${search} || '%')
         group by visitor_key order by max(last_event_at) desc limit ${pageSize} offset ${offset}`,
       sql<{ count: string }[]>`
-        select count(distinct visitor_key)::text as count from visitor_sessions where site_id = ${SITE_ID} and visitor_key is not null and started_at >= ${from}::date and started_at < (${to}::date + interval '1 day')
+        select count(distinct visitor_key)::text as count from visitor_sessions where site_id = ${SITE_ID} and visitor_key is not null and started_at >= ${start} and started_at <= ${end}
           and (${traffic} = 'all' or (${traffic} = 'valid' and traffic_class = 'valid') or (${traffic} = 'excluded' and traffic_class <> 'valid'))
           and (${channel} = '' or channel = ${channel}) and (${country} = '' or country_code = ${country})
           and (${search} = '' or coalesce(landing_path,'') ilike '%' || ${search} || '%' or coalesce(exit_path,'') ilike '%' || ${search} || '%' or coalesce(source,'') ilike '%' || ${search} || '%')`,
@@ -190,14 +166,15 @@ export async function getAnalyticsDashboard(input: AnalyticsFilters = {}): Promi
     }
 
     return {
-      connected: true, from, to, filters: { ...input, range, traffic, page, pageSize }, lastEventAt: lastEventRows[0]?.occurred_at || null,
-      totals: { views: number(totalsRows[0]?.views), sessions: number(totalsRows[0]?.sessions), visitors: number(totalsRows[0]?.visitors), returning: number(totalsRows[0]?.returning), leads: number(totalsRows[0]?.leads), excluded: number(excludedRows[0]?.count) },
+      connected: true, error: false, from, to, filters: { ...input, range, traffic, page, pageSize }, lastEventAt: lastEventRows[0]?.occurred_at || null,
+      totals: { views: number(totalsRows[0]?.views), sessions: number(totalsRows[0]?.sessions), visitors: number(totalsRows[0]?.visitors), returning: number(totalsRows[0]?.returning), leads: number(leadRows[0]?.count), excluded: number(excludedRows[0]?.count) },
       trend: trendRows, channels: channelRows, countries: countryRows, devices: deviceRows, pages: pageRows,
       visitors: visitorRows.map((row) => ({ id: row.anonymous_session_id, visitor: row.visitor_key ? row.visitor_key.slice(0, 12) : "历史会话", visitNumber: row.visit_number || null, returning: Boolean(row.is_returning), country: row.country_code || "未知", channel: row.channel || "direct", source: row.source || "—", landing: row.landing_path || "—", exit: row.exit_path || "—", device: row.device_class || "—", locale: row.locale || "—", events: number(row.event_count), startedAt: displayTime(row.started_at), trafficClass: row.traffic_class || "valid", excludedReason: row.exclusion_reason, pathSummary: pathMap.get(row.anonymous_session_id) || "暂未记录路径事件" })),
       totalRows: number(countRows[0]?.count), profiles, profileTotalRows: number(profileCountRows[0]?.count),
       timeline: timeline.map((row) => ({ event: row.event_name, path: row.path || "—", at: displayTime(row.occurred_at) })), visitorJourney,
     };
-  } catch {
-    return unavailable;
+  } catch (error) {
+    console.error("Admin analytics query failed", { message: error instanceof Error ? error.message : "unknown_error" });
+    return { ...unavailable, error: true };
   }
 }

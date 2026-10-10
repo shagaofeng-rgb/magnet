@@ -1,4 +1,5 @@
 import "./admin.css";
+import "./admin-v3.css";
 
 export const metadata = { robots: { index: false, follow: false }, title: "BZMAGNET Admin" };
 

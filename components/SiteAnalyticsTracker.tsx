@@ -69,10 +69,7 @@ export function SiteAnalyticsTracker({ locale }: { locale: string }) {
       if (configured) send(configured, locale, element.dataset.analyticsLabel || element.textContent?.trim().slice(0, 80), href);
       else if (/request-quote|contact|quote/i.test(href)) send("cta_click", locale, element.textContent?.trim().slice(0, 80), href);
     };
-    const onSubmit = (event: SubmitEvent) => {
-      const form = event.target as HTMLFormElement | null;
-      if (form?.closest("main")) send("form_submit", locale, form.getAttribute("action") || window.location.pathname);
-    };
+    const onLeadSaved = () => send("form_submit", locale, "inquiry_saved", window.location.pathname);
     const onFocus = (event: FocusEvent) => {
       const form = (event.target as HTMLElement | null)?.closest("form");
       if (form && !form.dataset.analyticsStarted) {
@@ -81,11 +78,11 @@ export function SiteAnalyticsTracker({ locale }: { locale: string }) {
       }
     };
     document.addEventListener("click", onClick);
-    document.addEventListener("submit", onSubmit, true);
+    window.addEventListener("bzmagnet:lead-saved", onLeadSaved);
     document.addEventListener("focusin", onFocus);
     return () => {
       document.removeEventListener("click", onClick);
-      document.removeEventListener("submit", onSubmit, true);
+      window.removeEventListener("bzmagnet:lead-saved", onLeadSaved);
       document.removeEventListener("focusin", onFocus);
     };
   }, [locale]);

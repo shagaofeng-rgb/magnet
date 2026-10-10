@@ -3,6 +3,7 @@ import "server-only";
 import { createHmac, randomUUID } from "node:crypto";
 import type { NextRequest } from "next/server";
 import postgres from "postgres";
+import { resolveAdminDateRange } from "@/lib/admin-date-range";
 
 const SITE_ID = "bzmagnet";
 const cleanUrl = (value: string | undefined) => value?.trim().replace(/^(['"])(.*)\1$/, "$2") || undefined;
@@ -69,7 +70,7 @@ export async function collectAnalyticsEvent(request: NextRequest, input: Analyti
   const countryRegion = request.headers.get("x-vercel-ip-country-region") || null;
   const ipHash = anonymize(clientIp(request)), userAgentHash = anonymize(userAgent);
   const device = /Mobi|Android|iPhone|iPad/i.test(userAgent || "") ? "mobile" : "desktop";
-  const today = new Date().toISOString().slice(0, 10);
+  const today = resolveAdminDateRange({ range: "today" }).from;
 
   await sql.begin(async (transaction) => {
     const duplicate = await transaction<{ id: string }[]>`select id::text from analytics_events where site_id = ${SITE_ID} and event_id = ${eventId} limit 1`;

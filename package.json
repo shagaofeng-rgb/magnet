@@ -16,6 +16,7 @@
     "audit:products": "node scripts/audit-bzmagnet-products.mjs",
     "audit:news-readiness": "node scripts/audit-news-release-readiness.mjs",
     "audit:product-redirects": "node scripts/generate-product-redirect-map.mjs",
+    "audit:live": "node scripts/audit-live-site.mjs",
     "news:migrate": "node scripts/migrate-news-automation.mjs",
     "news:bootstrap": "node scripts/bootstrap-news-store.mjs",
     "news:sources:import": "node scripts/import-news-source-catalog.mjs",

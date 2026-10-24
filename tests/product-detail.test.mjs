@@ -1,4 +1,5 @@
 import test from "node:test";import assert from "node:assert/strict";import fs from "node:fs";
+test("product card fill images remain within their media container",()=>{assert.match(fs.readFileSync("app/product-detail.css","utf8"),/\.card-media\{position:relative;aspect-ratio:4\/3/)});
 const model=fs.readFileSync("lib/product-model.ts","utf8"),page=fs.readFileSync("components/ProductDetail.tsx","utf8"),catalog=JSON.parse(fs.readFileSync("data/products.generated.json","utf8"));
 test("canonical category routes retain localized equipment aliases",()=>{for(const segment of ["equipment","equipos","equipamentos","المعدات","oborudovanie","productCategorySlugs","legacyProductPath"])assert.ok(model.includes(segment))});
 test("publication validation blocks unsafe data",()=>{for(const token of ["product-image-approval","unverified-","magnet-conflict"])assert.ok(model.includes(token))});

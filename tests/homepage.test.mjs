@@ -39,6 +39,8 @@ test("homepage image sources remain BZMAGNET-controlled", () => {
 
 test("inquiry attribution is allow-listed", () => {
   const api = fs.readFileSync("app/api/inquiries/route.ts", "utf8");
-  for (const key of ["context", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"]) assert.match(api, new RegExp(key));
-  assert.match(api, /attributionKeys/);
+  const validator = fs.readFileSync("lib/inquiry-validation.ts", "utf8");
+  for (const key of ["context", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"]) assert.match(validator, new RegExp(key));
+  assert.match(validator, /attributionKeys/);
+  assert.match(api, /isValidInquiryAttribution/);
 });

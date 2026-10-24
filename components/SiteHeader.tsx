@@ -180,7 +180,6 @@ export function SiteHeader({ locale }: { locale: Locale }) {
     if (closeTimer.current) clearTimeout(closeTimer.current);
   }, []);
 
-  const toggle = (name: Exclude<MenuName, null>) => setOpen((current) => current === name ? null : name);
   const cancelScheduledClose = () => {
     if (closeTimer.current) clearTimeout(closeTimer.current);
     closeTimer.current = null;
@@ -209,18 +208,18 @@ export function SiteHeader({ locale }: { locale: Locale }) {
         <nav className="desktop-nav" aria-label="Primary navigation">
           <Link href={localePath(locale)} onClick={closeAll}>{t.home}</Link>
           <div className="nav-group nav-group-mega" onMouseEnter={() => openMenu("products")} onMouseLeave={scheduleClose}>
-            <button aria-expanded={open === "products"} aria-controls="products-menu" aria-haspopup="true" onClick={() => toggle("products")} onFocus={() => openMenu("products")}>{t.products}<span aria-hidden="true">▾</span></button>
+            <button aria-expanded={open === "products"} aria-controls="products-menu" aria-haspopup="true" onClick={() => openMenu("products")} onFocus={() => openMenu("products")}>{t.products}<span aria-hidden="true">▾</span></button>
             {open === "products" && <div id="products-menu" className="mega-menu">
               <div className="mega-intro"><span className="eyebrow">{t.products}</span><strong>{t.chooseByProcess}</strong><Link href={localePath(locale, "products")} onClick={closeAll}>{t.allProducts} →</Link></div>
               <div className="mega-links">{t.productsMenu.map((item, index) => <Link key={item.slug} href={localePath(locale, `products/${item.slug}`)} onClick={closeAll}><span>0{index + 1}</span><strong>{item.name}</strong><small>{t.productDescription}</small></Link>)}</div>
             </div>}
           </div>
           <div className="nav-group" onMouseEnter={() => openMenu("industries")} onMouseLeave={scheduleClose}>
-            <button aria-expanded={open === "industries"} aria-controls="industries-menu" aria-haspopup="true" onClick={() => toggle("industries")} onFocus={() => openMenu("industries")}>{t.industries}<span aria-hidden="true">▾</span></button>
+            <button aria-expanded={open === "industries"} aria-controls="industries-menu" aria-haspopup="true" onClick={() => openMenu("industries")} onFocus={() => openMenu("industries")}>{t.industries}<span aria-hidden="true">▾</span></button>
             {open === "industries" && <div id="industries-menu" className="compact-menu"><Link href={localePath(locale, "industry-solutions")} onClick={closeAll}>{t.allIndustrySolutions}</Link>{t.industriesMenu.map((item) => <Link key={item.slug} href={localePath(locale, `industry-solutions/${item.slug}`)} onClick={closeAll}>{item.name}</Link>)}</div>}
           </div>
           <div className="nav-group" onMouseEnter={() => openMenu("news")} onMouseLeave={scheduleClose}>
-            <button aria-expanded={open === "news"} aria-controls="news-menu" aria-haspopup="true" onClick={() => toggle("news")} onFocus={() => openMenu("news")}>{t.news}<span aria-hidden="true">▾</span></button>
+            <button aria-expanded={open === "news"} aria-controls="news-menu" aria-haspopup="true" onClick={() => openMenu("news")} onFocus={() => openMenu("news")}>{t.news}<span aria-hidden="true">▾</span></button>
             {open === "news" && <div id="news-menu" className="compact-menu"><Link href={localePath(locale, "news")} onClick={closeAll}>{t.news}</Link><Link href={localePath(locale, "blog")} onClick={closeAll}>{t.blog}</Link></div>}
           </div>
           <Link href={localePath(locale, "about-contact")} onClick={closeAll}>{t.about}</Link>

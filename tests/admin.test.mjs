@@ -47,7 +47,11 @@ test("news and inquiry summaries use their own persisted records", () => {
   assert.match(news, /union all[\s\S]*news_articles/);
   assert.match(news, /from news_runs where site_id/);
   assert.match(forms, /leadSourceRows[\s\S]*from form_leads/);
+  assert.match(forms, /test_submission/);
   assert.doesNotMatch(forms, /items: bars\(channelRows\)/);
+  assert.match(store, /label: "真实询盘"/);
+  assert.match(store, /label: "测试记录"/);
+  assert.match(read("lib/admin-analytics.ts"), /form_leads[^`]*test_submission/);
 });
 
 test("Search Console integration is server-only and scopes imported metrics to BZMAGNET", () => {

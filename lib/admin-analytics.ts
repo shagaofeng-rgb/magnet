@@ -77,7 +77,7 @@ export async function getAnalyticsDashboard(input: AnalyticsFilters = {}): Promi
           count(*)::text as sessions, count(distinct visitor_key)::text as visitors,
           count(*) filter (where is_returning)::text as returning
         from visitor_sessions where site_id = ${SITE_ID} and traffic_class = 'valid' and started_at >= ${start} and started_at <= ${end}`,
-      sql<{ count: string }[]>`select count(*)::text as count from form_leads where site_id = ${SITE_ID} and created_at >= ${start} and created_at <= ${end}`,
+      sql<{ count: string }[]>`select count(*)::text as count from form_leads where site_id = ${SITE_ID} and created_at >= ${start} and created_at <= ${end} and coalesce(attribution->>'test_submission', 'false') <> 'true'`,
       sql<{ count: string }[]>`select count(*)::text as count from visitor_sessions where site_id = ${SITE_ID} and traffic_class <> 'valid' and started_at >= ${start} and started_at <= ${end}`,
       sql<{ label: string; views: number; visitors: number; leads: number }[]>`
         select to_char(metric_date, 'MM-DD') as label, coalesce(sum(page_views),0)::int as views, coalesce(sum(unique_visitors),0)::int as visitors, coalesce(sum(conversions),0)::int as leads

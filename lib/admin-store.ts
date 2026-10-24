@@ -124,13 +124,35 @@ export async function getAdminModuleData(siteId: string, area: string, input: Ad
     breakdowns = [{ title: "发布状态", items: bars(statusRows), emptyText: "尚无产品记录。" }, { title: "目录类型", items: bars(typeRows), emptyText: "尚无目录记录。" }, { title: "页面访问", items: bars(pageRows), emptyText: "当前范围内暂无产品页面访问。" }];
     table = { title: "产品目录", columns: ["名称", "链接标识", "语言", "状态", "更新时间"], rows: rows.map((row) => [row.title, row.slug || "—", row.locale, row.status, dateTime(row.updated_at)]), emptyText: "尚未录入产品记录。" };
   } else if (area === "news") {
-    totalRows = await count(() => sql<{ count: string }[]>`select count(*)::text as count from content_records where site_id = ${siteId} and updated_at >= ${start} and updated_at <= ${end} and (${search} = '' or title ilike '%' || ${search} || '%')`);
-    const rows = await sql<{ title: string; content_type: string; status: string; locale: string; updated_at: string }[]>`select title, content_type, status, locale, updated_at from content_records where site_id = ${siteId} and updated_at >= ${start} and updated_at <= ${end} and (${search} = '' or title ilike '%' || ${search} || '%') order by updated_at desc limit ${pageSize} offset ${offset}`;
-    const statusRows = await sql<{ label: string; value: number }[]>`select status as label, count(*)::int as value from content_records where site_id = ${siteId} group by status order by value desc`;
-    const typeRows = await sql<{ label: string; value: number }[]>`select content_type as label, count(*)::int as value from content_records where site_id = ${siteId} group by content_type order by value desc`;
-    const jobRows = await sql<{ label: string; value: number }[]>`select status as label, count(*)::int as value from admin_jobs where site_id = ${siteId} group by status order by value desc`;
-    breakdowns = [{ title: "内容状态", items: bars(statusRows), emptyText: "尚无内容记录。" }, { title: "内容类型", items: bars(typeRows), emptyText: "尚无内容记录。" }, { title: "任务状态", items: bars(jobRows), emptyText: "尚无运行任务。" }];
-    table = { title: "内容记录", columns: ["标题", "类型", "语言", "状态", "更新时间"], rows: rows.map((row) => [row.title, row.content_type, row.locale, row.status, dateTime(row.updated_at)]), emptyText: "尚无已保存的内容记录。" };
+    totalRows = await count(() => sql<{ count: string }[]>`
+      select count(*)::text as count from (
+        select id from content_records where site_id = ${siteId} and updated_at >= ${start} and updated_at <= ${end} and (${search} = '' or title ilike '%' || ${search} || '%')
+        union all
+        select id from news_articles where site_id = ${siteId} and coalesce(modified_at, published_at, created_at) >= ${start} and coalesce(modified_at, published_at, created_at) <= ${end} and (${search} = '' or title ilike '%' || ${search} || '%')
+      ) records`);
+    const rows = await sql<{ title: string; source: string; content_type: string; status: string; locale: string; updated_at: string }[]>`
+      select title, source, content_type, status, locale, updated_at from (
+        select title, '内容记录' as source, content_type, status, locale, updated_at from content_records
+          where site_id = ${siteId} and updated_at >= ${start} and updated_at <= ${end} and (${search} = '' or title ilike '%' || ${search} || '%')
+        union all
+        select title, 'News' as source, content_type, status, locale, coalesce(modified_at, published_at, created_at) as updated_at from news_articles
+          where site_id = ${siteId} and coalesce(modified_at, published_at, created_at) >= ${start} and coalesce(modified_at, published_at, created_at) <= ${end} and (${search} = '' or title ilike '%' || ${search} || '%')
+      ) records order by updated_at desc limit ${pageSize} offset ${offset}`;
+    const statusRows = await sql<{ label: string; value: number }[]>`
+      select status as label, count(*)::int as value from (
+        select status from content_records where site_id = ${siteId} and updated_at >= ${start} and updated_at <= ${end}
+        union all
+        select status from news_articles where site_id = ${siteId} and coalesce(modified_at, published_at, created_at) >= ${start} and coalesce(modified_at, published_at, created_at) <= ${end}
+      ) records group by status order by value desc`;
+    const typeRows = await sql<{ label: string; value: number }[]>`
+      select content_type as label, count(*)::int as value from (
+        select content_type from content_records where site_id = ${siteId} and updated_at >= ${start} and updated_at <= ${end}
+        union all
+        select content_type from news_articles where site_id = ${siteId} and coalesce(modified_at, published_at, created_at) >= ${start} and coalesce(modified_at, published_at, created_at) <= ${end}
+      ) records group by content_type order by value desc`;
+    const jobRows = await sql<{ label: string; value: number }[]>`select status as label, count(*)::int as value from news_runs where site_id = ${siteId} and started_at >= ${start} and started_at <= ${end} group by status order by value desc`;
+    breakdowns = [{ title: "内容状态", items: bars(statusRows), emptyText: "尚无内容记录。" }, { title: "内容类型", items: bars(typeRows), emptyText: "尚无内容记录。" }, { title: "News 运行记录", items: bars(jobRows), emptyText: "当前范围尚无 News 运行记录。" }];
+    table = { title: "内容记录", columns: ["标题", "来源", "类型", "语言", "状态", "更新时间"], rows: rows.map((row) => [row.title, row.source, row.content_type, row.locale, row.status, dateTime(row.updated_at)]), emptyText: "当前范围尚无内容记录。" };
   } else if (area === "news-operations") {
     const installed = await sql<{ source_catalog: string | null }[]>`select to_regclass('public.news_sources')::text as source_catalog`;
     totalRows = installed[0]?.source_catalog ? await count(() => sql<{ count: string }[]>`select count(*)::text as count from news_sources source join news_source_catalog_versions version on version.id = source.catalog_version_id where source.site_id = ${siteId} and version.status = 'active' and (source.last_checked_at is null or (source.last_checked_at >= ${start} and source.last_checked_at <= ${end})) and (${search} = '' or source.name ilike '%' || ${search} || '%')`) : 0;
@@ -153,7 +175,8 @@ export async function getAdminModuleData(siteId: string, area: string, input: Ad
     const rows = await sql<{ id: string; lead_status: string; created_at: string; attribution: { locale?: string; source?: string; product_name?: string } | null; email_status: string | null }[]>`select lead.id::text as id, lead.lead_status, lead.created_at, lead.attribution, email.status as email_status from form_leads lead left join lateral (select job.status from admin_jobs job where job.site_id = ${siteId} and job.kind = 'inquiry_email_notification' and job.idempotency_key = 'inquiry-email:' || lead.id::text order by job.created_at desc limit 1) email on true where lead.site_id = ${siteId} and lead.created_at >= ${start} and lead.created_at <= ${end} and (${search} = '' or lead.id::text ilike '%' || ${search} || '%' or coalesce(lead.attribution->>'product_name', '') ilike '%' || ${search} || '%' or coalesce(lead.attribution->>'source', '') ilike '%' || ${search} || '%') order by lead.created_at desc limit ${pageSize} offset ${offset}`;
     const statusRows = await sql<{ label: string; value: number }[]>`select lead_status as label, count(*)::int as value from form_leads where site_id = ${siteId} and created_at >= ${start} and created_at <= ${end} group by lead_status order by value desc`;
     const leadLocaleRows = await sql<{ label: string; value: number }[]>`select coalesce(nullif(attribution->>'locale', ''), 'unknown') as label, count(*)::int as value from form_leads where site_id = ${siteId} and created_at >= ${start} and created_at <= ${end} group by 1 order by value desc`;
-    breakdowns = [{ title: "询盘状态", items: bars(statusRows), emptyText: "当前范围内暂无询盘。" }, { title: "询盘语言", items: bars(leadLocaleRows), emptyText: "当前范围内暂无询盘。" }, { title: "来源渠道", items: bars(channelRows), emptyText: "当前范围内暂无来源数据。" }];
+    const leadSourceRows = await sql<{ label: string; value: number }[]>`select coalesce(nullif(attribution->>'source', ''), '未记录') as label, count(*)::int as value from form_leads where site_id = ${siteId} and created_at >= ${start} and created_at <= ${end} group by 1 order by value desc limit 6`;
+    breakdowns = [{ title: "询盘状态", items: bars(statusRows), emptyText: "当前范围内暂无询盘。" }, { title: "询盘语言", items: bars(leadLocaleRows), emptyText: "当前范围内暂无询盘。" }, { title: "询盘来源", items: bars(leadSourceRows), emptyText: "当前范围内暂无询盘来源。" }];
     table = { title: "询盘收件箱", columns: ["编号", "状态", "邮件通知", "语言", "产品", "来源", "提交时间"], rows: rows.map((row) => [row.id.slice(0, 8), row.lead_status, row.email_status === "succeeded" ? "已发送" : row.email_status === "failed" ? "发送失败" : row.email_status ? "处理中" : "未记录", row.attribution?.locale || "—", row.attribution?.product_name || "—", row.attribution?.source || "—", dateTime(row.created_at)]), emptyText: "当前范围内尚未收到询盘。" };
   } else if (area === "seo") {
     totalRows = seoRows;

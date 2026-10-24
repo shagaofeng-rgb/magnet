@@ -40,6 +40,16 @@ test("admin operating layer persists real site-scoped records without external s
   assert.doesNotMatch(store, /coalesce\(status, 'recorded'\)/);
 });
 
+test("news and inquiry summaries use their own persisted records", () => {
+  const store = read("lib/admin-store.ts");
+  const news = store.split('} else if (area === "news") {')[1].split('} else if (area === "news-operations") {')[0];
+  const forms = store.split('} else if (area === "forms") {')[1].split('} else if (area === "seo") {')[0];
+  assert.match(news, /union all[\s\S]*news_articles/);
+  assert.match(news, /from news_runs where site_id/);
+  assert.match(forms, /leadSourceRows[\s\S]*from form_leads/);
+  assert.doesNotMatch(forms, /items: bars\(channelRows\)/);
+});
+
 test("Search Console integration is server-only and scopes imported metrics to BZMAGNET", () => {
   const source = read("lib/search-console.ts");
   assert.match(source, /server-only/);

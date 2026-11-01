@@ -1,5 +1,6 @@
 import catalog from "@/data/products.generated.json";
 import type { Locale } from "./i18n";
+import { detailedProductLocalization } from "./product-localizations";
 
 export type VerifiedValue<T = string> = { value: T; sourceId: string; conditions?: string; approvedAt: string };
 export type Visibility = "public" | "on_request" | "hidden";
@@ -48,7 +49,15 @@ export function validateProductForPublication(product: ProductRecord) {
   if (facts.includes("permanent") && facts.includes("electromagnetic")) errors.push("magnet-conflict");
   return errors;
 }
-export const productRecords = catalog.products as ProductRecord[];
+export const productRecords = (catalog.products as ProductRecord[]).map((product) => {
+  const translation = detailedProductLocalization(product.id, "pt");
+  if (!translation) return product;
+  return {
+    ...product,
+    media: product.media.map((item) => ({ ...item, alt: { ...item.alt, pt: "Separador magnético permanente suspenso da BZMAGNET" } })),
+    locale: { ...product.locale, pt: { ...product.locale.pt, ...translation.metadata } },
+  };
+});
 export const publicProducts = productRecords.filter((product) => validateProductForPublication(product).length === 0);
 
 function decodedSlug(value: string) {
@@ -69,6 +78,8 @@ function slugStem(value: string) {
 }
 
 export function productSlugFor(locale: Locale, product: Pick<ProductRecord, "id" | "locale">) {
+  const translation = detailedProductLocalization(product.id, locale);
+  if (translation) return translation.metadata.slug;
   return `${slugStem(product.locale[locale].title)}-${product.id.slice(0, 8)}`;
 }
 
@@ -106,13 +117,9 @@ export function legacyCategoryPathForSlug(slug: string) {
   return historicalCategoryAliases[decodedSlug(slug).toLowerCase()];
 }
 
-/**
- * Non-English product detail pages remain available to buyers, but are withheld
- * from search indexing until their full product details are independently
- * localized. The English source record is the current complete public version.
- */
-export function isProductLocaleIndexable(locale: Locale) {
-  return locale === "en";
+/** Non-English detail pages are indexed only when the complete approved record is localized. */
+export function isProductLocaleIndexable(locale: Locale, product: Pick<ProductRecord, "id">) {
+  return locale === "en" || detailedProductLocalization(product.id, locale) !== null;
 }
 
 export function visibleRows(rows: ProductRecord["specifications"] | ProductRecord["options"]) {

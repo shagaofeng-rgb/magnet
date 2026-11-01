@@ -18,10 +18,18 @@ export function proxy(request: NextRequest) {
   // Keep the public hostname as a single, strong canonical signal. Preview and
   // Vercel deployment hosts intentionally bypass this condition.
   const requestHost = request.headers.get("host")?.split(":")[0].toLowerCase();
+  const oldContact = pathname.match(/^\/(?:(en|es|pt|ar|ru)\/)?contact\/?$/);
   if (request.nextUrl.hostname === "www.bzmagnet.com" || requestHost === "www.bzmagnet.com") {
     const canonical = request.nextUrl.clone();
     canonical.hostname = "bzmagnet.com";
     canonical.port = "";
+    if (oldContact) canonical.pathname = `/${oldContact[1] || "en"}/about-contact`;
+    return secure(NextResponse.redirect(canonical, 308));
+  }
+  // Historical contact URLs should reach their indexable canonical page in one hop.
+  if (oldContact) {
+    const canonical = request.nextUrl.clone();
+    canonical.pathname = `/${oldContact[1] || "en"}/about-contact`;
     return secure(NextResponse.redirect(canonical, 308));
   }
   // A small number of legacy crawls accidentally treated the old hostname as

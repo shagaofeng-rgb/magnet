@@ -13,9 +13,9 @@ export async function metadataFor({ params }: { params: Promise<{ locale: string
   const localized = product.locale[activeLocale];
   const publicPath = productPathFor(activeLocale, product);
   const image = product.media.find((item) => item.isPrimary);
-  const indexable = isProductLocaleIndexable(activeLocale);
+  const indexable = isProductLocaleIndexable(activeLocale, product);
   const languages = indexable
-    ? Object.fromEntries(locales.filter((code) => isProductLocaleIndexable(code)).map((code) => [code, `${origin}${productPathFor(code, product)}`]))
+    ? Object.fromEntries(locales.filter((code) => isProductLocaleIndexable(code, product)).map((code) => [code, `${origin}${productPathFor(code, product)}`]))
     : undefined;
 
   return {

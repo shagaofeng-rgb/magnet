@@ -4,6 +4,7 @@ import { JsonLd } from "./JsonLd";
 import { type Locale, localePath, origin } from "@/lib/i18n";
 import { type ProductRecord, productCategoryPath, productPathFor, visibleRows } from "@/lib/product-model";
 import { relatedArticleLinks } from "@/lib/product-content-relations";
+import { detailedProductLocalization } from "@/lib/product-localizations";
 
 type DetailCopy = {
   home: string;
@@ -82,6 +83,8 @@ export function ProductDetail({ product, locale }: { product: ProductRecord; loc
   const specs = visibleRows(product.specifications);
   const options = visibleRows(product.options);
   const canRenderSourceLanguageDetails = locale === "en";
+  const portugueseDetail = detailedProductLocalization(product.id, locale);
+  const hasFullDetails = canRenderSourceLanguageDetails || !!portugueseDetail;
   const relatedArticles = canRenderSourceLanguageDetails ? relatedArticleLinks(product.id, locale) : [];
   const publicPath = productPathFor(locale, product);
   const quote = `${localePath(locale, "request-quote")}?product=${encodeURIComponent(product.id)}&product_name=${encodeURIComponent(localized.title)}&locale=${locale}&source=${encodeURIComponent(publicPath)}&context=product-detail`;
@@ -95,16 +98,16 @@ export function ProductDetail({ product, locale }: { product: ProductRecord; loc
   return <>
     <JsonLd data={{ "@context": "https://schema.org", "@type": "Product", name: localized.title, description: localized.summary, url: `${origin}${publicPath}`, brand: { "@type": "Brand", name: "BZMAGNET" } }} />
     <JsonLd data={{ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: crumbs.map((item, index) => ({ "@type": "ListItem", position: index + 1, name: item.name, item: item.url })) }} />
-    {canRenderSourceLanguageDetails && product.faq.length > 0 && <JsonLd data={{ "@context": "https://schema.org", "@type": "FAQPage", mainEntity: product.faq.map((item) => ({ "@type": "Question", name: item.question, acceptedAnswer: { "@type": "Answer", text: item.answer } })) }} />}
+    {hasFullDetails && <JsonLd data={{ "@context": "https://schema.org", "@type": "FAQPage", mainEntity: (portugueseDetail?.faq || product.faq).map((item) => ({ "@type": "Question", name: item.question, acceptedAnswer: { "@type": "Answer", text: item.answer } })) }} />}
     <div className="shell product-breadcrumbs" aria-label="Breadcrumb">{crumbs.map((item, index) => <span key={item.url}>{index > 0 && " / "}<Link href={item.url}>{item.name}</Link></span>)}</div>
     <section className="product-hero"><div className="shell product-hero-grid">
       <div><span className="eyebrow">{familyName}</span><h1>{localized.title}</h1><p className="product-summary">{localized.summary}</p>
-        {canRenderSourceLanguageDetails && <div className="application-tags">{product.applications.slice(0, 4).map((application) => <span key={application.title}>{application.title}</span>)}</div>}
+        {hasFullDetails && <div className="application-tags">{(portugueseDetail?.applicationTags || product.applications.map((application) => application.title)).slice(0, 4).map((application) => <span key={application}>{application}</span>)}</div>}
         <div className="actions"><Link className="btn btn-orange" href={quote}>{t.quote}</Link><Link className="btn btn-outline" href={`${quote}&details=1`}>{t.processDetails}</Link></div>
       </div>
       <div>{images.length ? <div className="product-gallery"><div className="product-main-image"><Image src={images[0].src} alt={productImageAlt(locale, localized.title)} fill priority sizes="(max-width:900px) 100vw,55vw" /></div>{images.length > 1 && <div className="product-thumbs">{images.map((image) => <Image key={image.assetId} src={image.src} alt={productImageAlt(locale, localized.title)} width={96} height={72} />)}</div>}<p>{t.imageReference}</p></div> : <div className="product-placeholder" role="img" aria-label={t.imageAvailable}><span>{t.imageAvailable}</span></div>}</div>
     </div></section>
-    <div className="shell quick-info">{canRenderSourceLanguageDetails ? [
+    <div className="shell quick-info">{portugueseDetail ? portugueseDetail.quickFacts.map(([label, value]) => <div key={label}><strong>{label}</strong><span>{value}</span></div>) : canRenderSourceLanguageDetails ? [
       [t.suitableProcess, product.applications[0]?.context],
       [t.equipmentType, product.productType],
       [t.installationPosition, specs.find((item) => item.label === "Installation position")?.display],
@@ -113,8 +116,22 @@ export function ProductDetail({ product, locale }: { product: ProductRecord; loc
     <div className="shell product-body"><main>
       <Section id="overview" title={t.overview}><p>{localized.description}</p></Section>
       {canRenderSourceLanguageDetails && <EnglishProductDetails product={product} specs={specs} options={options} relatedArticles={relatedArticles} quote={quote} />}
-    </main>{canRenderSourceLanguageDetails && <aside className="sticky-enquiry"><h2>Start Your Enquiry</h2><p>{localized.title}</p><p>Send material, process and installation details for product matching.</p><Link className="btn btn-orange" href={quote}>{t.quote}</Link></aside>}</div>
+      {portugueseDetail && <PortugueseProductDetails detail={portugueseDetail} quote={quote} />}
+    </main>{hasFullDetails && <aside className="sticky-enquiry"><h2>{portugueseDetail ? "Inicie sua consulta" : "Start Your Enquiry"}</h2><p>{localized.title}</p><p>{portugueseDetail ? "Envie dados do material, do processo e da instalação para avaliarmos a configuração." : "Send material, process and installation details for product matching."}</p><Link className="btn btn-orange" href={quote}>{t.quote}</Link></aside>}</div>
     <section className="product-final"><div className="shell"><div><h2>{t.needHelp}</h2><p>{t.finalMessage}</p></div><Link className="btn btn-orange" href={quote}>{t.quote}</Link></div></section>
+  </>;
+}
+
+function PortugueseProductDetails({ detail, quote }: { detail: NonNullable<ReturnType<typeof detailedProductLocalization>>; quote: string }) {
+  return <>
+    <nav className="detail-nav" aria-label="Detalhes do produto"><div className="shell">{[["working-principle", "Funcionamento"], ["applications", "Aplicação"], ["selection", "Dados para seleção"], ["specifications", "Especificações"], ["installation", "Instalação"], ["faq", "Perguntas frequentes"]].map(([id, label]) => <a key={id} href={`#${id}`}>{label}</a>)}</div></nav>
+    <Section id="working-principle" title="Como funciona"><p>{detail.principle}</p></Section>
+    <Section id="applications" title="Aplicação"><div className="application-grid">{detail.applications.map((application) => <article key={application.title}><h3>{application.title}</h3><p>{application.context}</p><dl><dt>Instalação</dt><dd>{application.placement}</dd><dt>Material</dt><dd>{application.material}</dd></dl></article>)}</div></Section>
+    <Section id="selection" title="Dados necessários para seleção"><ul className="selection-list">{detail.selectionInputs.map((input) => <li key={input}>{input}</li>)}</ul><p className="notice">A configuração adequada é confirmada após a análise dos dados do processo fornecidos.</p></Section>
+    <Section id="specifications" title="Especificações"><InfoTable rows={detail.specifications} /><div className="option-card"><h3>Opções e configuração</h3><InfoTable rows={detail.options} /></div></Section>
+    <Section id="installation" title="Instalação e uso"><ol className="install-steps"><li><strong>Confirme a posição</strong><span>Revise o ponto previsto no processo.</span></li><li><strong>Confirme o espaço e o suporte</strong><span>Informe o espaço disponível e as restrições de montagem.</span></li><li><strong>Confirme os requisitos de operação</strong><span>Compartilhe as condições de operação do local.</span></li></ol><div className="considerations"><h3>Considerações importantes</h3><ul>{detail.limitations.map((item) => <li key={item}>{item}</li>)}</ul></div><h3>Manutenção</h3><ul>{detail.maintenance.map((item) => <li key={item}>{item}</li>)}</ul></Section>
+    <Section id="faq" title="Perguntas frequentes"><div className="faq-list">{detail.faq.map((item) => <details key={item.question}><summary>{item.question}</summary><p>{item.answer}</p></details>)}</div></Section>
+    <aside className="mobile-product-enquiry"><Link className="btn btn-orange" href={quote}>Solicitar cotação</Link></aside>
   </>;
 }
 
@@ -136,6 +153,6 @@ function Section({ id, title, children }: { id: string; title: string; children:
   return <section id={id} className="product-section"><h2>{title}</h2>{children}</section>;
 }
 
-function InfoTable({ rows }: { rows: ReturnType<typeof visibleRows> }) {
+function InfoTable({ rows }: { rows: ReadonlyArray<{ label: string; display: string }> }) {
   return <div className="table-wrap"><table><thead><tr><th>Item</th><th>Available Information</th></tr></thead><tbody>{rows.map((item) => <tr key={item.label}><th>{item.label}</th><td>{item.display}</td></tr>)}</tbody></table></div>;
 }

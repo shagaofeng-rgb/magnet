@@ -15,7 +15,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...locales.flatMap((locale) => [
       ...fixed.map((path) => ({ url: `${origin}/${locale}${path ? `/${path}` : ""}`, changeFrequency: "weekly" as const, priority: path ? 0.7 : 1 })),
       ...families.map((family) => ({ url: `${origin}/${locale}/products/${family.slug}`, changeFrequency: "weekly" as const, priority: 0.8 })),
-      ...(isProductLocaleIndexable(locale) ? publicProducts.map((product) => ({ url: `${origin}${productPathFor(locale, product)}`, changeFrequency: "weekly" as const, priority: 0.9 })) : []),
+      ...publicProducts.filter((product) => isProductLocaleIndexable(locale, product)).map((product) => ({ url: `${origin}${productPathFor(locale, product)}`, changeFrequency: "weekly" as const, priority: 0.9 })),
       ...industryNavigation.map((item) => ({ url: `${origin}/${locale}/industry-solutions/${item.slug}`, changeFrequency: "monthly" as const, priority: 0.8 })),
     ]),
     ...news.map((article) => ({ url: `${origin}${articlePath(article)}`, lastModified: article.modifiedAt ?? article.publishedAt, changeFrequency: "monthly" as const, priority: 0.7 })),

@@ -96,7 +96,7 @@ export function ProductDetail({ product, locale }: { product: ProductRecord; loc
   ];
 
   return <>
-    <JsonLd data={{ "@context": "https://schema.org", "@type": "Product", name: localized.title, description: localized.summary, url: `${origin}${publicPath}`, brand: { "@type": "Brand", name: "BZMAGNET" } }} />
+    <JsonLd data={{ "@context": "https://schema.org", "@type": "WebPage", name: localized.title, description: localized.summary, url: `${origin}${publicPath}`, inLanguage: locale }} />
     <JsonLd data={{ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: crumbs.map((item, index) => ({ "@type": "ListItem", position: index + 1, name: item.name, item: item.url })) }} />
     {hasFullDetails && <JsonLd data={{ "@context": "https://schema.org", "@type": "FAQPage", mainEntity: (portugueseDetail?.faq || product.faq).map((item) => ({ "@type": "Question", name: item.question, acceptedAnswer: { "@type": "Answer", text: item.answer } })) }} />}
     <div className="shell product-breadcrumbs" aria-label="Breadcrumb">{crumbs.map((item, index) => <span key={item.url}>{index > 0 && " / "}<Link href={item.url}>{item.name}</Link></span>)}</div>

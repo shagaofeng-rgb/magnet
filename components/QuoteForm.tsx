@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import type { Locale } from "@/lib/i18n";
+import type { InquiryAttribution } from "@/lib/inquiry-validation";
 import { quoteCopy } from "@/lib/site-copy";
 
-export function QuoteForm({ locale }: { locale: Locale }) {
+export function QuoteForm({ locale, productAttribution }: { locale: Locale; productAttribution?: InquiryAttribution }) {
   const [state, setState] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const copy = quoteCopy[locale];
@@ -16,7 +17,10 @@ export function QuoteForm({ locale }: { locale: Locale }) {
     setState(copy.sending);
     const form = event.currentTarget;
     const formData = new FormData(form);
-    const body = { ...Object.fromEntries(formData), attribution: { ...captureAttribution(), locale } };
+    const body = {
+      ...Object.fromEntries(formData),
+      attribution: { ...captureAttribution(), ...productAttribution, locale },
+    };
     try {
       const response = await fetch("/api/inquiries", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       const result = await response.json().catch(() => null);

@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { Locale } from "@/lib/i18n";
+import { ProductPhoto } from "./ProductPhoto";
 
 export type CatalogItem = {
   id: string;
@@ -48,7 +48,7 @@ export function ProductCategoryCatalog({ locale, items, showMagnetFilters = fals
       <label className="catalog-search"><span className="sr-only">{t.search}</span><input type="search" value={query} placeholder={t.search} onChange={(event) => { setQuery(event.target.value); setPage(1); }} /></label>
     </div>
     {visible.length ? <div className="catalog-grid">{visible.map((item) => <article className="catalog-card" key={item.id}>
-      <Link className="catalog-card-media" href={item.href}><Image src={item.image} alt={item.alt} fill sizes="(max-width:700px) 100vw, (max-width:1100px) 50vw, 33vw" /></Link>
+      <Link className="catalog-card-media" href={item.href}><ProductPhoto src={item.image} alt={item.alt} /></Link>
       <div className="catalog-card-body">{item.model && <span className="eyebrow">{item.model}</span>}<h2><Link href={item.href}>{item.title}</Link></h2><p>{item.summary}</p><Link className="card-link" href={item.href}>{t.view} <span aria-hidden="true">→</span></Link></div>
     </article>)}</div> : <div className="catalog-empty" role="status">{t.empty}</div>}
     {pageCount > 1 && <nav className="catalog-pagination" aria-label={t.page}>

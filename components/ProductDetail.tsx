@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { JsonLd } from "./JsonLd";
+import { ProductPhoto } from "./ProductPhoto";
 import { type Locale, localePath, origin } from "@/lib/i18n";
 import { type ProductRecord, productCategoryPath, productPathFor, visibleRows } from "@/lib/product-model";
 import { relatedArticleLinks } from "@/lib/product-content-relations";
@@ -105,7 +106,7 @@ export function ProductDetail({ product, locale }: { product: ProductRecord; loc
         {hasFullDetails && <div className="application-tags">{(portugueseDetail?.applicationTags || product.applications.map((application) => application.title)).slice(0, 4).map((application) => <span key={application}>{application}</span>)}</div>}
         <div className="actions"><Link className="btn btn-orange" href={quote}>{t.quote}</Link><Link className="btn btn-outline" href={`${quote}&details=1`}>{t.processDetails}</Link></div>
       </div>
-      <div>{images.length ? <div className="product-gallery"><div className="product-main-image"><Image src={images[0].src} alt={productImageAlt(locale, localized.title)} fill priority sizes="(max-width:900px) 100vw,55vw" /></div>{images.length > 1 && <div className="product-thumbs">{images.map((image) => <Image key={image.assetId} src={image.src} alt={productImageAlt(locale, localized.title)} width={96} height={72} />)}</div>}<p>{t.imageReference}</p></div> : <div className="product-placeholder" role="img" aria-label={t.imageAvailable}><span>{t.imageAvailable}</span></div>}</div>
+      <div>{images.length ? <div className="product-gallery"><div className="product-main-image"><ProductPhoto src={images[0].src} alt={productImageAlt(locale, localized.title)} detail /></div>{images.length > 1 && <div className="product-thumbs">{images.map((image) => <Image key={image.assetId} src={image.src} alt={productImageAlt(locale, localized.title)} width={96} height={72} />)}</div>}<p>{t.imageReference}</p></div> : <div className="product-placeholder" role="img" aria-label={t.imageAvailable}><span>{t.imageAvailable}</span></div>}</div>
     </div></section>
     <div className="shell quick-info">{portugueseDetail ? portugueseDetail.quickFacts.map(([label, value]) => <div key={label}><strong>{label}</strong><span>{value}</span></div>) : canRenderSourceLanguageDetails ? [
       [t.suitableProcess, product.applications[0]?.context],

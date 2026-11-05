@@ -1,7 +1,7 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHero } from "@/components/PageHero";
+import { ProductPhoto } from "@/components/ProductPhoto";
 import { isLocale, type Locale } from "@/lib/i18n";
 import { productPathFor, publicProducts } from "@/lib/product-model";
 
@@ -41,7 +41,7 @@ export default async function Search({ params, searchParams }: { params: Promise
       {!term ? <div className="catalog-empty" role="status">{t.prompt}</div> : !items.length ? <div className="catalog-empty" role="status">{t.empty}</div> : <div className="catalog-grid">{items.map((product) => {
         const href = productPathFor(locale, product);
         return <article className="catalog-card" key={product.id}>
-          <Link className="catalog-card-media" href={href}><Image src={product.media[0].src} alt={product.media[0].alt[locale]} fill sizes="(max-width:700px) 100vw, 33vw" /></Link>
+          <Link className="catalog-card-media" href={href}><ProductPhoto src={product.media[0].src} alt={product.media[0].alt[locale]} /></Link>
           <div className="catalog-card-body"><span className="eyebrow">{product.model}</span><h2><Link href={href}>{product.locale[locale].title}</Link></h2><p>{product.locale[locale].summary}</p><Link className="card-link" href={href}>{t.view} →</Link></div>
         </article>;
       })}</div>}

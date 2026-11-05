@@ -113,11 +113,11 @@ export function ProductDetail({ product, locale }: { product: ProductRecord; loc
       [t.installationPosition, specs.find((item) => item.label === "Installation position")?.display],
       [t.operatingMode, specs.find((item) => item.label === "Cleaning mode")?.display],
     ].map(([label, value]) => <div key={label}><strong>{label}</strong><span>{value || t.availableOnRequest}</span></div>) : <div><strong>{t.equipmentType}</strong><span>{t.availableOnRequest}</span></div>}</div>
-    <div className="shell product-body"><main>
+    <div className="shell product-body"><div className="product-content">
       <Section id="overview" title={t.overview}><p>{localized.description}</p></Section>
       {canRenderSourceLanguageDetails && <EnglishProductDetails product={product} specs={specs} options={options} relatedArticles={relatedArticles} quote={quote} />}
       {portugueseDetail && <PortugueseProductDetails detail={portugueseDetail} quote={quote} />}
-    </main>{hasFullDetails && <aside className="sticky-enquiry"><h2>{portugueseDetail ? "Inicie sua consulta" : "Start Your Enquiry"}</h2><p>{localized.title}</p><p>{portugueseDetail ? "Envie dados do material, do processo e da instalação para avaliarmos a configuração." : "Send material, process and installation details for product matching."}</p><Link className="btn btn-orange" href={quote}>{t.quote}</Link></aside>}</div>
+    </div>{hasFullDetails && <aside className="sticky-enquiry"><h2>{portugueseDetail ? "Inicie sua consulta" : "Start Your Enquiry"}</h2><p>{localized.title}</p><p>{portugueseDetail ? "Envie dados do material, do processo e da instalação para avaliarmos a configuração." : "Send material, process and installation details for product matching."}</p><Link className="btn btn-orange" href={quote}>{t.quote}</Link></aside>}</div>
     <section className="product-final"><div className="shell"><div><h2>{t.needHelp}</h2><p>{t.finalMessage}</p></div><Link className="btn btn-orange" href={quote}>{t.quote}</Link></div></section>
   </>;
 }
@@ -128,7 +128,7 @@ function PortugueseProductDetails({ detail, quote }: { detail: NonNullable<Retur
     <Section id="working-principle" title="Como funciona"><p>{detail.principle}</p></Section>
     <Section id="applications" title="Aplicação"><div className="application-grid">{detail.applications.map((application) => <article key={application.title}><h3>{application.title}</h3><p>{application.context}</p><dl><dt>Instalação</dt><dd>{application.placement}</dd><dt>Material</dt><dd>{application.material}</dd></dl></article>)}</div></Section>
     <Section id="selection" title="Dados necessários para seleção"><ul className="selection-list">{detail.selectionInputs.map((input) => <li key={input}>{input}</li>)}</ul><p className="notice">A configuração adequada é confirmada após a análise dos dados do processo fornecidos.</p></Section>
-    <Section id="specifications" title="Especificações"><InfoTable rows={detail.specifications} /><div className="option-card"><h3>Opções e configuração</h3><InfoTable rows={detail.options} /></div></Section>
+    <Section id="specifications" title="Especificações"><InfoTable rows={detail.specifications} locale="pt" /><div className="option-card"><h3>Opções e configuração</h3><InfoTable rows={detail.options} locale="pt" /></div></Section>
     <Section id="installation" title="Instalação e uso"><ol className="install-steps"><li><strong>Confirme a posição</strong><span>Revise o ponto previsto no processo.</span></li><li><strong>Confirme o espaço e o suporte</strong><span>Informe o espaço disponível e as restrições de montagem.</span></li><li><strong>Confirme os requisitos de operação</strong><span>Compartilhe as condições de operação do local.</span></li></ol><div className="considerations"><h3>Considerações importantes</h3><ul>{detail.limitations.map((item) => <li key={item}>{item}</li>)}</ul></div><h3>Manutenção</h3><ul>{detail.maintenance.map((item) => <li key={item}>{item}</li>)}</ul></Section>
     <Section id="faq" title="Perguntas frequentes"><div className="faq-list">{detail.faq.map((item) => <details key={item.question}><summary>{item.question}</summary><p>{item.answer}</p></details>)}</div></Section>
     <aside className="mobile-product-enquiry"><Link className="btn btn-orange" href={quote}>Solicitar cotação</Link></aside>
@@ -141,7 +141,7 @@ function EnglishProductDetails({ product, specs, options, relatedArticles, quote
     <Section id="working-principle" title="How It Works"><p>{product.capabilities.join(" ")}</p></Section>
     <Section id="applications" title="Applications"><div className="application-grid">{product.applications.map((application) => <article key={application.title}><h3>{application.title}</h3><p>{application.context}</p><dl><dt>Placement</dt><dd>{application.placement}</dd><dt>Material</dt><dd>{application.material}</dd></dl></article>)}</div></Section>
     <Section id="selection" title="Information Needed for Product Matching"><ul className="selection-list">{product.selectionInputs.map((input) => <li key={input}>{input}</li>)}</ul><p className="notice">The suitable configuration is confirmed after reviewing the process information provided.</p></Section>
-    <Section id="specifications" title="Specifications"><InfoTable rows={specs} /><div className="option-card"><h3>Options and Customisation</h3>{options.length ? <InfoTable rows={options} /> : <p>Please send project requirements for confirmation.</p>}</div></Section>
+    <Section id="specifications" title="Specifications"><InfoTable rows={specs} locale="en" /><div className="option-card"><h3>Options and Customisation</h3>{options.length ? <InfoTable rows={options} locale="en" /> : <p>Please send project requirements for confirmation.</p>}</div></Section>
     <Section id="installation" title="Installation and Use"><ol className="install-steps"><li><strong>Confirm position</strong><span>Review the intended process position.</span></li><li><strong>Confirm clearance and support</strong><span>Provide installation space and mounting constraints.</span></li><li><strong>Confirm power/control requirements</strong><span>Share available services and control preferences.</span></li></ol><div className="considerations"><h3>Important considerations</h3><ul>{product.limitations.map((item) => <li key={item}>{item}</li>)}</ul></div><h3>Maintenance</h3>{product.maintenance?.length ? <ul>{product.maintenance.map((item) => <li key={item}>{item}</li>)}</ul> : <p>Request maintenance guidance for the configuration under review.</p>}</Section>
     <Section id="faq" title="Frequently Asked Questions"><div className="faq-list">{product.faq.map((item) => <details key={item.question}><summary>{item.question}</summary><p>{item.answer}</p></details>)}</div></Section>
     {relatedArticles.length > 0 && <Section id="related-guides" title="Related Guides and News"><ul>{relatedArticles.map((item) => <li key={item.id}><Link href={item.href}>{item.label}</Link></li>)}</ul></Section>}
@@ -153,6 +153,6 @@ function Section({ id, title, children }: { id: string; title: string; children:
   return <section id={id} className="product-section"><h2>{title}</h2>{children}</section>;
 }
 
-function InfoTable({ rows }: { rows: ReadonlyArray<{ label: string; display: string }> }) {
-  return <div className="table-wrap"><table><thead><tr><th>Item</th><th>Available Information</th></tr></thead><tbody>{rows.map((item) => <tr key={item.label}><th>{item.label}</th><td>{item.display}</td></tr>)}</tbody></table></div>;
+function InfoTable({ rows, locale }: { rows: ReadonlyArray<{ label: string; display: string }>; locale: "en" | "pt" }) {
+  return <div className="table-wrap"><table><thead><tr><th>Item</th><th>{locale === "pt" ? "Informação disponível" : "Available Information"}</th></tr></thead><tbody>{rows.map((item) => <tr key={item.label}><th>{item.label}</th><td>{item.display}</td></tr>)}</tbody></table></div>;
 }

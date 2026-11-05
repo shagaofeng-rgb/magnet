@@ -5,6 +5,7 @@ import "./homepage.css";
 import "./brand-overrides.css";
 import "./product-detail.css";
 import "./editorial.css";
+import "./public-redesign.css";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { isLocale } from "@/lib/i18n";

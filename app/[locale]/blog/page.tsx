@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { PageHero } from "@/components/PageHero";
 import { isLocale, localePath } from "@/lib/i18n";
 import { articlePath, editorialAssets, publishedArticles } from "@/lib/editorial";
 import { alternates } from "@/lib/seo";
@@ -20,7 +21,8 @@ export default async function Blog({ params }: { params: Promise<{ locale: strin
   const copy=homeCopy[locale];
   const featured = publishedArticles.find((item) => item.locale === locale && item.contentType === "blog");
   return <>
-    <section className="editorial-hero"><div className="shell"><span className="eyebrow">BZMAGNET</span><h1>{copy.blogHeading}</h1><p>{copy.heroBody}</p></div></section>
+    <PageHero eyebrow={copy.blogHeading} title={copy.blogHeading} intro={copy.heroBody}
+      image="/media/editorial/blog-hub-process-planning.webp" ctaHref={localePath(locale, "request-quote")} ctaLabel={copy.requestQuote} />
     <div className="shell topic-grid">{copy.categories.map((topic) => <div key={topic.title}>{topic.title}</div>)}</div>
     <section className="editorial-section"><div className="shell">
       {featured ? <Link className="featured-guide" href={articlePath(featured)}><Image src={editorialAssets.guideHub.src} alt={editorialAssets.guideHub.alt} width={768} height={512}/><div><span>{copy.blogHeading}</span><h2>{featured.title}</h2><p>{featured.summary}</p><strong>{copy.viewBlog} →</strong></div></Link> : <div className="empty-state">{copy.noPublished}</div>}

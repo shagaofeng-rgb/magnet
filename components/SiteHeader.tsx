@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { type Locale, localeNames, localePath, locales } from "@/lib/i18n";
+import { companyEmail } from "@/lib/contact";
 
 type MenuName = "products" | "industries" | "news" | null;
 type MenuItem = { slug: string; name: string; description?: string };
@@ -11,6 +13,7 @@ type NavigationCopy = {
   home: string;
   products: string;
   industries: string;
+  solutions: string;
   news: string;
   about: string;
   quote: string;
@@ -28,7 +31,7 @@ type NavigationCopy = {
 
 const navigation: Record<Locale, NavigationCopy> = {
   en: {
-    home: "Home", products: "Products", industries: "Industry Solutions", news: "News", about: "About & Contact",
+    home: "Home", products: "Products", industries: "Industry Solutions", solutions: "Solutions", news: "News", about: "About & Contact",
     quote: "Request a Quote", menu: "Menu", close: "Close menu", skip: "Skip to content",
     chooseByProcess: "Choose by process condition", allProducts: "View all products", allIndustrySolutions: "All Industry Solutions", blog: "Blog",
     productDescription: "Compare suitable equipment and selection inputs.",
@@ -46,7 +49,7 @@ const navigation: Record<Locale, NavigationCopy> = {
     ],
   },
   es: {
-    home: "Inicio", products: "Productos", industries: "Soluciones industriales", news: "Noticias", about: "Nosotros y contacto",
+    home: "Inicio", products: "Productos", industries: "Soluciones industriales", solutions: "Soluciones", news: "Noticias", about: "Nosotros y contacto",
     quote: "Solicitar cotización", menu: "Menú", close: "Cerrar menú", skip: "Ir al contenido",
     chooseByProcess: "Elija según las condiciones del proceso", allProducts: "Ver todos los productos", allIndustrySolutions: "Todas las soluciones industriales", blog: "Blog",
     productDescription: "Compare equipos adecuados y datos necesarios para la selección.",
@@ -64,7 +67,7 @@ const navigation: Record<Locale, NavigationCopy> = {
     ],
   },
   pt: {
-    home: "Início", products: "Produtos", industries: "Soluções industriais", news: "Notícias", about: "Sobre e contato",
+    home: "Início", products: "Produtos", industries: "Soluções industriais", solutions: "Soluções", news: "Notícias", about: "Sobre e contato",
     quote: "Solicitar cotação", menu: "Menu", close: "Fechar menu", skip: "Ir para o conteúdo",
     chooseByProcess: "Escolha pelas condições do processo", allProducts: "Ver todos os produtos", allIndustrySolutions: "Todas as soluções industriais", blog: "Blog",
     productDescription: "Compare equipamentos adequados e informações necessárias para a seleção.",
@@ -82,7 +85,7 @@ const navigation: Record<Locale, NavigationCopy> = {
     ],
   },
   ar: {
-    home: "الرئيسية", products: "المنتجات", industries: "حلول القطاعات", news: "الأخبار", about: "من نحن والتواصل",
+    home: "الرئيسية", products: "المنتجات", industries: "حلول القطاعات", solutions: "الحلول", news: "الأخبار", about: "من نحن والتواصل",
     quote: "اطلب عرض سعر", menu: "القائمة", close: "إغلاق القائمة", skip: "الانتقال إلى المحتوى",
     chooseByProcess: "اختر وفق ظروف العملية", allProducts: "عرض كل المنتجات", allIndustrySolutions: "كل حلول القطاعات", blog: "المدونة",
     productDescription: "قارن المعدات المناسبة ومعلومات الاختيار المطلوبة.",
@@ -100,7 +103,7 @@ const navigation: Record<Locale, NavigationCopy> = {
     ],
   },
   ru: {
-    home: "Главная", products: "Продукция", industries: "Отраслевые решения", news: "Новости", about: "О компании и контакты",
+    home: "Главная", products: "Продукция", industries: "Отраслевые решения", solutions: "Решения", news: "Новости", about: "О компании и контакты",
     quote: "Запросить предложение", menu: "Меню", close: "Закрыть меню", skip: "Перейти к содержанию",
     chooseByProcess: "Выберите по условиям процесса", allProducts: "Все продукты", allIndustrySolutions: "Все отраслевые решения", blog: "Блог",
     productDescription: "Сравните подходящее оборудование и параметры для подбора.",
@@ -201,10 +204,10 @@ export function SiteHeader({ locale }: { locale: Locale }) {
 
   return <>
     <a className="skip" href="#content">{t.skip}</a>
-    <div className="topline" />
+    <div className="topline"><div className="shell topline-inner"><span>BZMAGNET Mechanical Solutions</span><a href={`mailto:${companyEmail}`}>{companyEmail}</a></div></div>
     <header className="site-header">
       <div className="shell header-row">
-        <Link className="brand" href={localePath(locale)} onClick={closeAll}><span className="brand-mark">B</span>BZMAGNET</Link>
+        <Link className="site-brand" href={localePath(locale)} onClick={closeAll} aria-label="BZMAGNET home"><Image src="/brand/bzmagnet-logo.png" alt="BZMAGNET Mechanical Solutions" width={148} height={80} priority /></Link>
         <nav className="desktop-nav" aria-label="Primary navigation">
           <Link href={localePath(locale)} onClick={closeAll}>{t.home}</Link>
           <div className="nav-group nav-group-mega" onMouseEnter={() => openMenu("products")} onMouseLeave={scheduleClose}>
@@ -218,6 +221,7 @@ export function SiteHeader({ locale }: { locale: Locale }) {
             <button aria-expanded={open === "industries"} aria-controls="industries-menu" aria-haspopup="true" onClick={() => openMenu("industries")} onFocus={() => openMenu("industries")}>{t.industries}<span aria-hidden="true">▾</span></button>
             {open === "industries" && <div id="industries-menu" className="compact-menu"><Link href={localePath(locale, "industry-solutions")} onClick={closeAll}>{t.allIndustrySolutions}</Link>{t.industriesMenu.map((item) => <Link key={item.slug} href={localePath(locale, `industry-solutions/${item.slug}`)} onClick={closeAll}>{item.name}</Link>)}</div>}
           </div>
+          <Link href={localePath(locale, "solutions")} onClick={closeAll}>{t.solutions}</Link>
           <div className="nav-group" onMouseEnter={() => openMenu("news")} onMouseLeave={scheduleClose}>
             <button aria-expanded={open === "news"} aria-controls="news-menu" aria-haspopup="true" onClick={() => openMenu("news")} onFocus={() => openMenu("news")}>{t.news}<span aria-hidden="true">▾</span></button>
             {open === "news" && <div id="news-menu" className="compact-menu"><Link href={localePath(locale, "news")} onClick={closeAll}>{t.news}</Link><Link href={localePath(locale, "blog")} onClick={closeAll}>{t.blog}</Link></div>}
@@ -231,12 +235,13 @@ export function SiteHeader({ locale }: { locale: Locale }) {
     </header>
     {drawer && <div className="drawer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDrawer(false); }}>
       <div ref={drawerRef} id="mobile-drawer" className="mobile-drawer" role="dialog" aria-modal="true" aria-label={t.menu}>
-        <div className="drawer-head"><span className="brand"><span className="brand-mark">B</span>BZMAGNET</span><button className="drawer-close" onClick={() => setDrawer(false)} aria-label={t.close}>×</button></div>
+        <div className="drawer-head"><Link className="site-brand" href={localePath(locale)} onClick={closeAll}><Image src="/brand/bzmagnet-logo.png" alt="BZMAGNET Mechanical Solutions" width={120} height={65} /></Link><button className="drawer-close" onClick={() => setDrawer(false)} aria-label={t.close}>×</button></div>
         <div className="drawer-scroll">
           <Link className="mobile-quote" href={localePath(locale, "request-quote")} onClick={closeAll}>{t.quote}</Link>
           <Link className="mobile-link" href={localePath(locale)} onClick={closeAll}>{t.home}</Link>
           <MobileAccordion label={t.products} open={mobileSection === "products"} onToggle={() => setMobileSection(mobileSection === "products" ? null : "products")}><Link href={localePath(locale, "products")} onClick={closeAll}>{t.allProducts}</Link>{t.productsMenu.map((item) => <Link key={item.slug} href={localePath(locale, `products/${item.slug}`)} onClick={closeAll}>{item.name}</Link>)}</MobileAccordion>
           <MobileAccordion label={t.industries} open={mobileSection === "industries"} onToggle={() => setMobileSection(mobileSection === "industries" ? null : "industries")}><Link href={localePath(locale, "industry-solutions")} onClick={closeAll}>{t.allIndustrySolutions}</Link>{t.industriesMenu.map((item) => <Link key={item.slug} href={localePath(locale, `industry-solutions/${item.slug}`)} onClick={closeAll}>{item.name}</Link>)}</MobileAccordion>
+          <Link className="mobile-link" href={localePath(locale, "solutions")} onClick={closeAll}>{t.solutions}</Link>
           <MobileAccordion label={t.news} open={mobileSection === "news"} onToggle={() => setMobileSection(mobileSection === "news" ? null : "news")}><Link href={localePath(locale, "news")} onClick={closeAll}>{t.news}</Link><Link href={localePath(locale, "blog")} onClick={closeAll}>{t.blog}</Link></MobileAccordion>
           <Link className="mobile-link" href={localePath(locale, "about-contact")} onClick={closeAll}>{t.about}</Link>
           <div className="mobile-languages" aria-label="Languages">{locales.map((item) => <Link key={item} href={localePath(item)} onClick={closeAll} aria-current={item === locale ? "page" : undefined}>{localeNames[item]}</Link>)}</div>

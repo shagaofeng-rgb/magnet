@@ -25,6 +25,7 @@ export const adminModules = [
 
 export const sites = [{ id: "bzmagnet", name: "BZMAGNET", origin: process.env.NEXT_PUBLIC_SITE_ORIGIN || "https://bzmagnet.com", locales: ["en", "es", "pt", "ar", "ru"], timezone: "Asia/Shanghai" }] as const;
 const actionRoles: Record<AdminAction, readonly AdminRole[]> = { read: roles, create: ["super_admin", "site_admin", "editor", "content_reviewer", "sales"], update: ["super_admin", "site_admin", "editor", "content_reviewer", "sales"], publish: ["super_admin", "site_admin", "content_reviewer"], delete: ["super_admin", "site_admin"], export: ["super_admin", "site_admin", "seo_analyst", "sales"], settings: ["super_admin", "site_admin"] };
+export const canReadInquiry = (role: AdminRole) => role === "super_admin" || role === "site_admin" || role === "sales";
 
 function sign(payload: string) { return createHmac("sha256", process.env.ADMIN_SESSION_SECRET || "").update(payload).digest("hex"); }
 export function encodeAdminSession(session: AdminSession) { const payload = Buffer.from(JSON.stringify(session)).toString("base64url"); return `${payload}.${sign(payload)}`; }

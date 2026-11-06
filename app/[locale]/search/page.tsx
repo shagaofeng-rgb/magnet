@@ -15,17 +15,17 @@ const copy: Record<Locale, { title: string; intro: string; search: string; empty
   ru: { title: "Поиск", intro: "Найдите опубликованное оборудование по модели, названию или процессу.", search: "Найти оборудование", empty: "Опубликованное оборудование не найдено.", prompt: "Введите название, модель или термин процесса.", view: "Открыть продукт", previous: "Назад", next: "Далее" },
 };
 
-export default async function Search({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ q?: string; page?: string }> }) {
-  const [{ locale }, { q = "", page = "1" }] = await Promise.all([params, searchParams]);
+export default async function Search({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ q?: string | string[]; page?: string | string[] }> }) {
+  const [{ locale }, { q, page }] = await Promise.all([params, searchParams]);
   if (!isLocale(locale)) notFound();
-  const term = q.trim().slice(0, 80);
+  const term = (Array.isArray(q) ? q[0] : q)?.trim().slice(0, 80) || "";
   const t = copy[locale];
   const results = term ? publicProducts.filter((product) => {
     const content = `${product.model || ""} ${product.locale[locale].title} ${product.locale[locale].summary}`.toLocaleLowerCase();
     return content.includes(term.toLocaleLowerCase());
   }) : [];
   const pageCount = Math.max(1, Math.ceil(results.length / 12));
-  const parsedPage = Number.parseInt(page, 10);
+  const parsedPage = Number.parseInt((Array.isArray(page) ? page[0] : page) || "1", 10);
   const currentPage = Number.isFinite(parsedPage) ? Math.min(Math.max(parsedPage, 1), pageCount) : 1;
   const items = results.slice((currentPage - 1) * 12, currentPage * 12);
   const query = encodeURIComponent(term);

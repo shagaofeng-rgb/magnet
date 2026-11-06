@@ -8,6 +8,7 @@ function secure(response: NextResponse) {
   response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   response.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
   response.headers.set("Cross-Origin-Opener-Policy", "same-origin");
+  response.headers.set("Content-Security-Policy", "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'");
   return response;
 }
 function blockedResponse() {
@@ -65,6 +66,10 @@ export function proxy(request: NextRequest) {
   if (locales.includes(first as never)) requestHeaders.set("x-bzmagnet-locale", first);
   else requestHeaders.delete("x-bzmagnet-locale");
   const response = NextResponse.next({ request: { headers: requestHeaders } });
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    response.headers.set("Cache-Control", "private, no-store");
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  }
   return secure(response);
 }
 export const config={matcher:["/((?!_next/static|_next/image|favicon.ico).*)"]};

@@ -2,12 +2,16 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { IconSearch } from "@tabler/icons-react";
+import { useEffect, useRef, useState, type FocusEvent } from "react";
 import { usePathname } from "next/navigation";
 import { type Locale, localeNames, localePath, locales } from "@/lib/i18n";
 import { companyEmail } from "@/lib/contact";
 
 type MenuName = "products" | "industries" | "news" | null;
+const searchLabel: Record<Locale, string> = {
+  en: "Search products", es: "Buscar productos", pt: "Pesquisar produtos", ar: "البحث عن المنتجات", ru: "Поиск продукции",
+};
 type MenuItem = { slug: string; name: string; description?: string };
 type NavigationCopy = {
   home: string;
@@ -31,7 +35,7 @@ type NavigationCopy = {
 
 const navigation: Record<Locale, NavigationCopy> = {
   en: {
-    home: "Home", products: "Products", industries: "Industry Solutions", solutions: "Solutions", news: "News", about: "About & Contact",
+    home: "Home", products: "Products", industries: "Industry Solutions", solutions: "By Application", news: "News", about: "About & Contact",
     quote: "Request a Quote", menu: "Menu", close: "Close menu", skip: "Skip to content",
     chooseByProcess: "Choose by process condition", allProducts: "View all products", allIndustrySolutions: "All Industry Solutions", blog: "Blog",
     productDescription: "Compare suitable equipment and selection inputs.",
@@ -49,7 +53,7 @@ const navigation: Record<Locale, NavigationCopy> = {
     ],
   },
   es: {
-    home: "Inicio", products: "Productos", industries: "Soluciones industriales", solutions: "Soluciones", news: "Noticias", about: "Nosotros y contacto",
+    home: "Inicio", products: "Productos", industries: "Soluciones industriales", solutions: "Por aplicación", news: "Noticias", about: "Nosotros y contacto",
     quote: "Solicitar cotización", menu: "Menú", close: "Cerrar menú", skip: "Ir al contenido",
     chooseByProcess: "Elija según las condiciones del proceso", allProducts: "Ver todos los productos", allIndustrySolutions: "Todas las soluciones industriales", blog: "Blog",
     productDescription: "Compare equipos adecuados y datos necesarios para la selección.",
@@ -67,7 +71,7 @@ const navigation: Record<Locale, NavigationCopy> = {
     ],
   },
   pt: {
-    home: "Início", products: "Produtos", industries: "Soluções industriais", solutions: "Soluções", news: "Notícias", about: "Sobre e contato",
+    home: "Início", products: "Produtos", industries: "Soluções industriais", solutions: "Por aplicação", news: "Notícias", about: "Sobre e contato",
     quote: "Solicitar cotação", menu: "Menu", close: "Fechar menu", skip: "Ir para o conteúdo",
     chooseByProcess: "Escolha pelas condições do processo", allProducts: "Ver todos os produtos", allIndustrySolutions: "Todas as soluções industriais", blog: "Blog",
     productDescription: "Compare equipamentos adequados e informações necessárias para a seleção.",
@@ -85,7 +89,7 @@ const navigation: Record<Locale, NavigationCopy> = {
     ],
   },
   ar: {
-    home: "الرئيسية", products: "المنتجات", industries: "حلول القطاعات", solutions: "الحلول", news: "الأخبار", about: "من نحن والتواصل",
+    home: "الرئيسية", products: "المنتجات", industries: "حلول القطاعات", solutions: "حسب التطبيق", news: "الأخبار", about: "من نحن والتواصل",
     quote: "اطلب عرض سعر", menu: "القائمة", close: "إغلاق القائمة", skip: "الانتقال إلى المحتوى",
     chooseByProcess: "اختر وفق ظروف العملية", allProducts: "عرض كل المنتجات", allIndustrySolutions: "كل حلول القطاعات", blog: "المدونة",
     productDescription: "قارن المعدات المناسبة ومعلومات الاختيار المطلوبة.",
@@ -103,7 +107,7 @@ const navigation: Record<Locale, NavigationCopy> = {
     ],
   },
   ru: {
-    home: "Главная", products: "Продукция", industries: "Отраслевые решения", solutions: "Решения", news: "Новости", about: "О компании и контакты",
+    home: "Главная", products: "Продукция", industries: "Отраслевые решения", solutions: "По задачам", news: "Новости", about: "О компании и контакты",
     quote: "Запросить предложение", menu: "Меню", close: "Закрыть меню", skip: "Перейти к содержанию",
     chooseByProcess: "Выберите по условиям процесса", allProducts: "Все продукты", allIndustrySolutions: "Все отраслевые решения", blog: "Блог",
     productDescription: "Сравните подходящее оборудование и параметры для подбора.",
@@ -129,6 +133,7 @@ export function SiteHeader({ locale }: { locale: Locale }) {
   const [mobileSection, setMobileSection] = useState<MenuName>(null);
   const menuButton = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
+  const navigationRef = useRef<HTMLElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathname = usePathname();
 
@@ -138,6 +143,9 @@ export function SiteHeader({ locale }: { locale: Locale }) {
     const trigger = menuButton.current;
     const panel = drawerRef.current;
     panel?.querySelector<HTMLElement>("button, a")?.focus();
+    const desktop = window.matchMedia("(min-width: 1161px)");
+    const closeOnDesktop = (event: MediaQueryListEvent) => { if (event.matches) setDrawer(false); };
+    desktop.addEventListener("change", closeOnDesktop);
     const keydown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setDrawer(false);
       if (event.key !== "Tab" || !panel) return;
@@ -154,21 +162,34 @@ export function SiteHeader({ locale }: { locale: Locale }) {
       }
     };
     document.addEventListener("keydown", keydown);
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", keydown);
-      document.body.style.overflow = "";
+      desktop.removeEventListener("change", closeOnDesktop);
+      document.body.style.overflow = previousOverflow;
       (previous || trigger)?.focus();
     };
   }, [drawer]);
 
   useEffect(() => {
+    if (!open) return;
     const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(null);
+      if (event.key !== "Escape") return;
+      const trigger = navigationRef.current?.querySelector<HTMLButtonElement>('button[aria-expanded="true"]');
+      setOpen(null);
+      trigger?.focus();
+    };
+    const outside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !navigationRef.current?.contains(event.target)) setOpen(null);
     };
     document.addEventListener("keydown", escape);
-    return () => document.removeEventListener("keydown", escape);
-  }, []);
+    document.addEventListener("pointerdown", outside);
+    return () => {
+      document.removeEventListener("keydown", escape);
+      document.removeEventListener("pointerdown", outside);
+    };
+  }, [open]);
 
   useEffect(() => {
     const closeOnRouteChange = window.setTimeout(() => {
@@ -191,6 +212,13 @@ export function SiteHeader({ locale }: { locale: Locale }) {
     cancelScheduledClose();
     setOpen(name);
   };
+  const toggleMenu = (name: Exclude<MenuName, null>) => {
+    cancelScheduledClose();
+    setOpen((current) => current === name ? null : name);
+  };
+  const onGroupBlur = (event: FocusEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget) && event.currentTarget.querySelector('[aria-expanded="true"]')) setOpen(null);
+  };
   const scheduleClose = () => {
     cancelScheduledClose();
     closeTimer.current = setTimeout(() => setOpen(null), 140);
@@ -208,26 +236,27 @@ export function SiteHeader({ locale }: { locale: Locale }) {
     <header className="site-header">
       <div className="shell header-row">
         <Link className="site-brand" href={localePath(locale)} onClick={closeAll} aria-label="BZMAGNET home"><Image src="/brand/bzmagnet-logo.png" alt="BZMAGNET Mechanical Solutions" width={148} height={80} priority /></Link>
-        <nav className="desktop-nav" aria-label="Primary navigation">
+        <nav ref={navigationRef} className="desktop-nav" aria-label="Primary navigation">
           <Link href={localePath(locale)} onClick={closeAll}>{t.home}</Link>
-          <div className="nav-group nav-group-mega" onMouseEnter={() => openMenu("products")} onMouseLeave={scheduleClose}>
-            <button aria-expanded={open === "products"} aria-controls="products-menu" aria-haspopup="true" onClick={() => openMenu("products")} onFocus={() => openMenu("products")}>{t.products}<span aria-hidden="true">▾</span></button>
+          <div className="nav-group nav-group-mega" onMouseEnter={() => openMenu("products")} onMouseLeave={scheduleClose} onBlur={onGroupBlur}>
+            <button aria-expanded={open === "products"} aria-controls={open === "products" ? "products-menu" : undefined} onClick={() => toggleMenu("products")}>{t.products}<span aria-hidden="true">▾</span></button>
             {open === "products" && <div id="products-menu" className="mega-menu">
               <div className="mega-intro"><span className="eyebrow">{t.products}</span><strong>{t.chooseByProcess}</strong><Link href={localePath(locale, "products")} onClick={closeAll}>{t.allProducts} →</Link></div>
               <div className="mega-links">{t.productsMenu.map((item, index) => <Link key={item.slug} href={localePath(locale, `products/${item.slug}`)} onClick={closeAll}><span>0{index + 1}</span><strong>{item.name}</strong><small>{t.productDescription}</small></Link>)}</div>
             </div>}
           </div>
-          <div className="nav-group" onMouseEnter={() => openMenu("industries")} onMouseLeave={scheduleClose}>
-            <button aria-expanded={open === "industries"} aria-controls="industries-menu" aria-haspopup="true" onClick={() => openMenu("industries")} onFocus={() => openMenu("industries")}>{t.industries}<span aria-hidden="true">▾</span></button>
+          <div className="nav-group" onMouseEnter={() => openMenu("industries")} onMouseLeave={scheduleClose} onBlur={onGroupBlur}>
+            <button aria-expanded={open === "industries"} aria-controls={open === "industries" ? "industries-menu" : undefined} onClick={() => toggleMenu("industries")}>{t.industries}<span aria-hidden="true">▾</span></button>
             {open === "industries" && <div id="industries-menu" className="compact-menu"><Link href={localePath(locale, "industry-solutions")} onClick={closeAll}>{t.allIndustrySolutions}</Link>{t.industriesMenu.map((item) => <Link key={item.slug} href={localePath(locale, `industry-solutions/${item.slug}`)} onClick={closeAll}>{item.name}</Link>)}</div>}
           </div>
           <Link href={localePath(locale, "solutions")} onClick={closeAll}>{t.solutions}</Link>
-          <div className="nav-group" onMouseEnter={() => openMenu("news")} onMouseLeave={scheduleClose}>
-            <button aria-expanded={open === "news"} aria-controls="news-menu" aria-haspopup="true" onClick={() => openMenu("news")} onFocus={() => openMenu("news")}>{t.news}<span aria-hidden="true">▾</span></button>
+          <div className="nav-group" onMouseEnter={() => openMenu("news")} onMouseLeave={scheduleClose} onBlur={onGroupBlur}>
+            <button aria-expanded={open === "news"} aria-controls={open === "news" ? "news-menu" : undefined} onClick={() => toggleMenu("news")}>{t.news}<span aria-hidden="true">▾</span></button>
             {open === "news" && <div id="news-menu" className="compact-menu"><Link href={localePath(locale, "news")} onClick={closeAll}>{t.news}</Link><Link href={localePath(locale, "blog")} onClick={closeAll}>{t.blog}</Link></div>}
           </div>
           <Link href={localePath(locale, "about-contact")} onClick={closeAll}>{t.about}</Link>
         </nav>
+        <Link className="header-search" href={localePath(locale, "search")} onClick={closeAll} aria-label={searchLabel[locale]} title={searchLabel[locale]}><IconSearch size={21} aria-hidden="true" /></Link>
         <Link className="header-quote" href={localePath(locale, "request-quote")} onClick={closeAll}>{t.quote}</Link>
         <details className="locale"><summary>{localeNames[locale]}</summary><div className="locale-menu">{locales.map((item) => <Link key={item} href={localePath(item)}>{localeNames[item]}</Link>)}</div></details>
         <button ref={menuButton} className="mobile-toggle" aria-expanded={drawer} aria-controls="mobile-drawer" onClick={() => setDrawer(true)}>{t.menu}<span aria-hidden="true">☰</span></button>
@@ -239,6 +268,7 @@ export function SiteHeader({ locale }: { locale: Locale }) {
         <div className="drawer-scroll">
           <Link className="mobile-quote" href={localePath(locale, "request-quote")} onClick={closeAll}>{t.quote}</Link>
           <Link className="mobile-link" href={localePath(locale)} onClick={closeAll}>{t.home}</Link>
+          <Link className="mobile-link" href={localePath(locale, "search")} onClick={closeAll}>{searchLabel[locale]}</Link>
           <MobileAccordion label={t.products} open={mobileSection === "products"} onToggle={() => setMobileSection(mobileSection === "products" ? null : "products")}><Link href={localePath(locale, "products")} onClick={closeAll}>{t.allProducts}</Link>{t.productsMenu.map((item) => <Link key={item.slug} href={localePath(locale, `products/${item.slug}`)} onClick={closeAll}>{item.name}</Link>)}</MobileAccordion>
           <MobileAccordion label={t.industries} open={mobileSection === "industries"} onToggle={() => setMobileSection(mobileSection === "industries" ? null : "industries")}><Link href={localePath(locale, "industry-solutions")} onClick={closeAll}>{t.allIndustrySolutions}</Link>{t.industriesMenu.map((item) => <Link key={item.slug} href={localePath(locale, `industry-solutions/${item.slug}`)} onClick={closeAll}>{item.name}</Link>)}</MobileAccordion>
           <Link className="mobile-link" href={localePath(locale, "solutions")} onClick={closeAll}>{t.solutions}</Link>

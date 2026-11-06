@@ -1,80 +1,80 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { analyticsOptOut, isProductDetailPath, sessionAttribution } from "@/lib/site-attribution";
 
-const sessionKey = "bzmagnet_anonymous_session";
-const visitorKey = "bzmagnet_anonymous_visitor";
+const ids = new Map<string, string>();
 
-function getId(storage: Storage, key: string) {
+function getId(key: string, persistent: boolean) {
+  const id = ids.get(key) || crypto.randomUUID();
   try {
+    const storage = persistent ? window.localStorage : window.sessionStorage;
     const existing = storage.getItem(key);
     if (existing) return existing;
-    const id = crypto.randomUUID();
     storage.setItem(key, id);
-    return id;
   } catch {
-    return crypto.randomUUID();
+    ids.set(key, id);
   }
+  return id;
 }
 
-function utmValues() {
-  const params = new URLSearchParams(window.location.search);
-  return {
-    source: params.get("utm_source") || undefined,
-    medium: params.get("utm_medium") || undefined,
-    campaign: params.get("utm_campaign") || undefined,
-    content: params.get("utm_content") || undefined,
-    term: params.get("utm_term") || undefined,
-  };
-}
-
-function send(event: string, locale: string, label?: string, target?: string) {
-  const path = window.location.pathname;
-  if (path.startsWith("/admin") || path.startsWith("/api")) return;
-  void fetch("/api/analytics", {
+function send(event: string, locale: string, path: string, target?: string) {
+  if (analyticsOptOut()) return Promise.resolve();
+  const source = sessionAttribution();
+  return fetch("/api/analytics", {
     method: "POST",
     headers: { "content-type": "application/json" },
     keepalive: true,
     body: JSON.stringify({
       event,
       eventId: crypto.randomUUID(),
-      sessionId: getId(window.sessionStorage, sessionKey),
-      visitorId: getId(window.localStorage, visitorKey),
+      sessionId: getId("bzmagnet_anonymous_session", false),
+      visitorId: getId("bzmagnet_anonymous_visitor", true),
       path,
       locale,
-      referrer: document.referrer || undefined,
-      utm: utmValues(),
-      label,
+      referrerHost: source.referrer_host,
+      utm: { source: source.utm_source, medium: source.utm_medium, campaign: source.utm_campaign, content: source.utm_content, term: source.utm_term },
       target,
     }),
-  });
+  }).then(() => undefined, () => undefined);
+}
+
+function conversionTarget(anchor: HTMLAnchorElement) {
+  const url = new URL(anchor.href);
+  if (url.origin === window.location.origin && /\/(request-quote|about-contact)$/.test(url.pathname)) return url.pathname;
+  if (url.protocol === "mailto:") return "email";
+  if (url.hostname === "wa.me") return "whatsapp";
+  if (url.hostname === "maps.app.goo.gl") return "google-maps";
 }
 
 export function SiteAnalyticsTracker({ locale }: { locale: string }) {
   const pathname = usePathname();
+  const lastPath = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!pathname || pathname.startsWith("/admin") || pathname.startsWith("/api")) return;
-    send("page_view", locale);
-    if (/\/(equipment|products)\//.test(pathname)) send("product_view", locale);
+    if (!pathname || lastPath.current === pathname) return;
+    lastPath.current = pathname;
+    const detail = isProductDetailPath(pathname) && !!document.querySelector("[data-analytics-product-detail]");
+    void send("page_view", locale, pathname).then(() => {
+      if (detail) void send("product_view", locale, pathname);
+    });
   }, [locale, pathname]);
 
   useEffect(() => {
     const onClick = (event: MouseEvent) => {
-      const element = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-analytics-event], a[href]");
-      if (!element) return;
-      const href = element instanceof HTMLAnchorElement ? element.getAttribute("href") || "" : "";
-      const configured = element.dataset.analyticsEvent;
-      if (configured) send(configured, locale, element.dataset.analyticsLabel || element.textContent?.trim().slice(0, 80), href);
-      else if (/request-quote|contact|quote/i.test(href)) send("cta_click", locale, element.textContent?.trim().slice(0, 80), href);
+      const anchor = event.target instanceof Element && event.target.closest<HTMLAnchorElement>("a[href]");
+      const target = anchor && conversionTarget(anchor);
+      if (target) void send("cta_click", locale, window.location.pathname, target);
     };
-    const onLeadSaved = () => send("form_submit", locale, "inquiry_saved", window.location.pathname);
+    const onLeadSaved = () => void send("form_submit", locale, window.location.pathname);
     const onFocus = (event: FocusEvent) => {
-      const form = (event.target as HTMLElement | null)?.closest("form");
-      if (form && !form.dataset.analyticsStarted) {
+      const field = event.target;
+      if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement || field instanceof HTMLSelectElement)) return;
+      const form = field.form;
+      if (form?.hasAttribute("data-inquiry-form") && !form.dataset.analyticsStarted) {
         form.dataset.analyticsStarted = "true";
-        send("form_start", locale, form.getAttribute("action") || window.location.pathname);
+        void send("form_start", locale, window.location.pathname);
       }
     };
     document.addEventListener("click", onClick);

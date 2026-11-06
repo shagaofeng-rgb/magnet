@@ -106,12 +106,13 @@ export function ProductDetail({ product, locale }: { product: ProductRecord; loc
       </span>)}
     </nav>
 
-    <section className="product-hero">
+    <section className="product-hero" data-analytics-product-detail>
       <div className="shell product-hero-grid">
         <div className="product-hero-title">
           <span className="eyebrow">{familyName}</span>
           <h1>{localized.title}</h1>
           {product.model && <p className="product-model">{t.model} <bdi>{product.model}</bdi></p>}
+          {locale === "en" && product.model === "RCYD" && <p className="product-intro">A self-cleaning permanent magnetic separator for removing tramp iron from conveyor-fed material. Share your belt width, feed depth and mounting height to confirm the fit.</p>}
         </div>
         <figure className="product-gallery">
           {mainImage ? <>

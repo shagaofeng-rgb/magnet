@@ -36,7 +36,8 @@ test("admin operating layer persists real site-scoped records without external s
   assert.match(seed, /product\.status === "published"/);
   assert.match(seed, /on conflict \(id\) do update/);
   const store = read("lib/admin-store.ts");
-  assert.match(store, /select 'recorded' as status/);
+  assert.match(store, /insert into audit_logs/);
+  assert.match(store, /from site_settings\s+where site_id/);
   assert.doesNotMatch(store, /coalesce\(status, 'recorded'\)/);
 });
 
@@ -49,8 +50,8 @@ test("news and inquiry summaries use their own persisted records", () => {
   assert.match(forms, /leadSourceRows[\s\S]*from form_leads/);
   assert.match(forms, /test_submission/);
   assert.doesNotMatch(forms, /items: bars\(channelRows\)/);
-  assert.match(store, /label: "真实询盘"/);
-  assert.match(store, /label: "测试记录"/);
+  assert.match(store, /metric\("真实询盘"/);
+  assert.match(store, /metric\("测试记录"/);
   assert.match(read("lib/admin-analytics.ts"), /form_leads[^`]*test_submission/);
 });
 
@@ -65,5 +66,6 @@ test("Search Console integration is server-only and scopes imported metrics to B
   const route = read("app/api/admin/search-console/sync/route.ts");
   assert.match(route, /CRON_SECRET/);
   assert.match(route, /SEARCH_CONSOLE_SYNC_SECRET/);
-  assert.match(route, /syncSearchConsoleMetrics/);
+  assert.match(route, /runSearchConsoleCycle\("bzmagnet"\)/);
+  assert.match(source, /allSettled\(\[syncSearchConsoleMetrics\(siteId\), submitSearchConsoleSitemap\(siteId\)\]\)/);
 });

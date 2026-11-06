@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { ADMIN_COOKIE, encodeAdminSession } from "@/lib/admin-console";
 import { requireAdmin } from "@/lib/admin-console";
 import { completeAdminJob, writeAdminAudit, writeAdminJob } from "@/lib/admin-store";
-import { syncSearchConsoleMetrics } from "@/lib/search-console";
+import { runSearchConsoleCycle } from "@/lib/search-console";
 import { runSourceHealthChecks } from "@/lib/news/source-health";
 const loginFailures = new Map<string, { attempts: number; startedAt: number }>();
 const loginWindowMs = 15 * 60 * 1000;
@@ -39,7 +39,10 @@ function matchesPassword(password: string, stored: string) {
   return actual.length === stored.length && timingSafeEqual(Buffer.from(actual), Buffer.from(stored));
 }
 export async function login(formData: FormData) { const email = String(formData.get("email") || "").trim().toLowerCase(); const password = String(formData.get("password") || ""); const key = await loginRateKey(email); if (loginIsRateLimited(key)) redirect("/admin/login?error=2"); const expectedEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase(); const expectedHash = process.env.ADMIN_PASSWORD_HASH; if (!process.env.ADMIN_SESSION_SECRET || !expectedEmail || !expectedHash || email !== expectedEmail || !matchesPassword(password, expectedHash)) { recordLoginFailure(key); redirect("/admin/login?error=1"); } loginFailures.delete(key); const token = encodeAdminSession({ userId: "bootstrap-admin", email, role: "super_admin", siteIds: ["bzmagnet"], expiresAt: Date.now() + 8 * 60 * 60 * 1000 }); (await cookies()).set(ADMIN_COOKIE, token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/admin", maxAge: 8 * 60 * 60 }); redirect("/admin/bzmagnet/overview"); }
-export async function logout() { (await cookies()).delete(ADMIN_COOKIE); redirect("/admin/login"); }
+export async function logout() {
+  (await cookies()).set(ADMIN_COOKIE, "", { path: "/admin", maxAge: 0, httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" });
+  redirect("/admin/login");
+}
 
 export async function queueInternalAdminCheck(formData: FormData) {
   const siteId = String(formData.get("siteId") || "");
@@ -59,9 +62,10 @@ export async function syncSearchConsole(formData: FormData) {
   const idempotencyKey = `search-console:${new Date().toISOString().slice(0, 10)}`;
   await writeAdminJob(siteId, "search_console_sync", idempotencyKey, { requestedBy: session.userId, requestedAt: new Date().toISOString() });
   try {
-    const result = await syncSearchConsoleMetrics(siteId);
-    await completeAdminJob(siteId, idempotencyKey, result.configured ? "succeeded" : "failed", result);
-    await writeAdminAudit(siteId, session.userId, "sync", "search_console", result.property, result.configured ? `Search Console sync completed: ${result.rows} metric records` : "Search Console is not configured");
+    const { body } = await runSearchConsoleCycle(siteId);
+    await completeAdminJob(siteId, idempotencyKey, body.ok ? "succeeded" : "failed", body);
+    await writeAdminAudit(siteId, session.userId, body.ok ? "sync" : "sync_failed", "search_console", body.property ?? null,
+      `Search Console metrics: ${body.metricsSynced ? body.rows : body.metricsCode || "unavailable"}; sitemap: ${body.sitemapSubmitted ? "submitted" : body.submissionCode || "unavailable"}`);
   } catch (error) {
     const code = error instanceof Error ? error.message.replace(/[^a-z0-9_-]/gi, "_").slice(0, 120) : "search_console_sync_failed";
     await completeAdminJob(siteId, idempotencyKey, "failed", { code });

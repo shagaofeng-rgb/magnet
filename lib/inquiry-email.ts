@@ -33,12 +33,18 @@ function configuration() {
 
 export async function sendInquiryNotification(leadId: string, inquiry: InquiryPayload, attribution: Attribution) {
   const config = configuration();
-  if (!config) return { sent: false, code: "smtp_not_configured" as const };
+  if (!config) return { sent: false as const, code: "smtp_not_configured" };
 
   const transport = nodemailer.createTransport({
     host: config.host,
     port: config.port,
     secure: config.port === 465,
+    requireTLS: config.port !== 465,
+    disableFileAccess: true,
+    disableUrlAccess: true,
+    connectionTimeout: 5_000,
+    greetingTimeout: 5_000,
+    socketTimeout: 8_000,
     auth: { user: config.user, pass: config.pass },
   });
   const subject = `[BZMAGNET] New enquiry ${leadId.slice(0, 8)}`;
@@ -51,6 +57,8 @@ export async function sendInquiryNotification(leadId: string, inquiry: InquiryPa
     ["Process details", inquiry.process],
     ["Product", attribution.product_name || attribution.product],
     ["Source page", attribution.source],
+    ["Landing page", attribution.landing_page],
+    ["Campaign", [attribution.utm_source, attribution.utm_medium, attribution.utm_campaign].filter(Boolean).join(" / ")],
     ["Language", attribution.locale],
   ];
   const text = details.map(([label, value]) => `${label}: ${value || "—"}`).join("\n");
@@ -59,10 +67,13 @@ export async function sendInquiryNotification(leadId: string, inquiry: InquiryPa
     from: `BZMAGNET Enquiries <${config.from}>`,
     to: config.to,
     replyTo: inquiry.email,
+    messageId: `<inquiry-${leadId}@bzmagnet.com>`,
     subject,
     text,
     html,
     headers: { "X-BZMAGNET-Lead-ID": leadId },
   });
-  return { sent: true, messageId: result.messageId };
+  return result.accepted.length
+    ? { sent: true as const, messageId: result.messageId }
+    : { sent: false as const, code: "smtp_recipient_rejected" };
 }

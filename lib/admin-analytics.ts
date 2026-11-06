@@ -40,19 +40,19 @@ export type AnalyticsDashboard = {
 const number = (value: string | number | null | undefined) => Number(value || 0);
 const selectedTraffic = (value: string | undefined): TrafficView => value === "all" || value === "excluded" ? value : "valid";
 const selectedPageSize = (value: number | undefined) => [25, 50, 100].includes(Number(value)) ? Number(value) : 25;
-const selectedPage = (value: number | undefined) => Math.max(1, Number(value) || 1);
+const selectedPage = (value: number | undefined) => typeof value === "number" && Number.isSafeInteger(value) ? Math.min(100_000, Math.max(1, value)) : 1;
 const displayTime = (value: string | Date | null) => value ? new Date(value).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false }) : "—";
 
 function filterLabel(value: string | undefined) { return value?.trim().slice(0, 80) || ""; }
 
-export async function getAnalyticsDashboard(input: AnalyticsFilters = {}): Promise<AnalyticsDashboard> {
+export async function getAnalyticsDashboard(input: AnalyticsFilters = {}, area: AnalyticsArea = "overview"): Promise<AnalyticsDashboard> {
   const { range, from, to } = resolveAdminDateRange(input);
   const start = new Date(`${from}T00:00:00+08:00`);
   const end = new Date(`${to}T23:59:59.999+08:00`);
   const traffic = selectedTraffic(input.traffic);
   const page = selectedPage(input.page), pageSize = selectedPageSize(input.pageSize), offset = (page - 1) * pageSize;
   const channel = filterLabel(input.channel), country = filterLabel(input.country).toUpperCase(), search = filterLabel(input.search);
-    const unavailable: AnalyticsDashboard = {
+  const unavailable: AnalyticsDashboard = {
     connected: false, error: false, from, to, filters: { ...input, range, traffic, page, pageSize }, lastEventAt: null,
     totals: { views: 0, sessions: 0, visitors: 0, returning: 0, leads: 0, excluded: 0 },
     trend: [], channels: [], countries: [], devices: [], pages: [], visitors: [], totalRows: 0, profiles: [], profileTotalRows: 0, timeline: [], visitorJourney: null,
@@ -67,7 +67,7 @@ export async function getAnalyticsDashboard(input: AnalyticsFilters = {}): Promi
       and (${traffic} = 'all' or (${traffic} = 'valid' and traffic_class = 'valid') or (${traffic} = 'excluded' and traffic_class <> 'valid'))
       and (${channel} = '' or channel = ${channel})
       and (${country} = '' or country_code = ${country})
-      and (${search} = '' or coalesce(landing_path,'') ilike '%' || ${search} || '%' or coalesce(exit_path,'') ilike '%' || ${search} || '%' or coalesce(source,'') ilike '%' || ${search} || '%')
+      and (${search} = '' or coalesce(landing_path,'') ilike '%' || ${search} || '%' or coalesce(exit_path,'') ilike '%' || ${search} || '%' or coalesce(source,'') ilike '%' || ${search} || '%' or coalesce(campaign,'') ilike '%' || ${search} || '%' or coalesce(medium,'') ilike '%' || ${search} || '%')
     order by started_at desc limit ${pageSize} offset ${offset}`;
 
   try {
@@ -80,7 +80,7 @@ export async function getAnalyticsDashboard(input: AnalyticsFilters = {}): Promi
       sql<{ count: string }[]>`select count(*)::text as count from form_leads where site_id = ${SITE_ID} and created_at >= ${start} and created_at <= ${end} and coalesce(attribution->>'test_submission', 'false') <> 'true'`,
       sql<{ count: string }[]>`select count(*)::text as count from visitor_sessions where site_id = ${SITE_ID} and traffic_class <> 'valid' and started_at >= ${start} and started_at <= ${end}`,
       sql<{ label: string; views: number; visitors: number; leads: number }[]>`
-        select to_char(metric_date, 'MM-DD') as label, coalesce(sum(page_views),0)::int as views, coalesce(sum(unique_visitors),0)::int as visitors, coalesce(sum(conversions),0)::int as leads
+        select metric_date::text as label, coalesce(sum(page_views),0)::int as views, coalesce(sum(unique_visitors),0)::int as visitors, coalesce(sum(conversions),0)::int as leads
         from page_metrics where site_id = ${SITE_ID} and source = 'first_party' and metric_date >= ${from}::date and metric_date <= ${to}::date group by metric_date order by metric_date`,
       sql<{ label: string; value: number }[]>`
         select coalesce(nullif(channel,''),'direct') as label, count(*)::int as value from visitor_sessions
@@ -91,22 +91,26 @@ export async function getAnalyticsDashboard(input: AnalyticsFilters = {}): Promi
       sql<{ label: string; value: number }[]>`
         select coalesce(nullif(device_class,''),'unknown') as label, count(*)::int as value from visitor_sessions
         where site_id = ${SITE_ID} and traffic_class = 'valid' and started_at >= ${start} and started_at <= ${end} group by 1 order by 2 desc limit 6`,
-      sql<{ path: string; views: number; visitors: number; leads: number }[]>`
+      area === "overview" || area === "page-performance" ? sql<{ path: string; views: number; visitors: number; leads: number }[]>`
         select path, sum(page_views)::int as views, sum(unique_visitors)::int as visitors, sum(conversions)::int as leads
-        from page_metrics where site_id = ${SITE_ID} and source = 'first_party' and metric_date >= ${from}::date and metric_date <= ${to}::date group by path order by views desc limit 12`,
-      sessionFilter(),
-      sql<{ count: string }[]>`
+        from page_metrics where site_id = ${SITE_ID} and source = 'first_party' and metric_date >= ${from}::date and metric_date <= ${to}::date group by path order by views desc limit 12` : [],
+      area === "visitors" ? [] : sessionFilter(),
+      area === "visitors" ? [] : sql<{ count: string }[]>`
         select count(*)::text as count from visitor_sessions
         where site_id = ${SITE_ID} and started_at >= ${start} and started_at <= ${end}
           and (${traffic} = 'all' or (${traffic} = 'valid' and traffic_class = 'valid') or (${traffic} = 'excluded' and traffic_class <> 'valid'))
           and (${channel} = '' or channel = ${channel}) and (${country} = '' or country_code = ${country})
-          and (${search} = '' or coalesce(landing_path,'') ilike '%' || ${search} || '%' or coalesce(exit_path,'') ilike '%' || ${search} || '%' or coalesce(source,'') ilike '%' || ${search} || '%')`,
+          and (${search} = '' or coalesce(landing_path,'') ilike '%' || ${search} || '%' or coalesce(exit_path,'') ilike '%' || ${search} || '%' or coalesce(source,'') ilike '%' || ${search} || '%' or coalesce(campaign,'') ilike '%' || ${search} || '%' or coalesce(medium,'') ilike '%' || ${search} || '%')`,
       sql<{ occurred_at: string }[]>`select occurred_at::text from analytics_events where site_id = ${SITE_ID} and traffic_class = 'valid' order by occurred_at desc limit 1`,
     ]);
     const ids = visitorRows.map((row) => row.anonymous_session_id).filter(Boolean);
     const paths = ids.length ? await sql<{ anonymous_session_id: string; path_summary: string }[]>`
-      select anonymous_session_id, string_agg(distinct path, ' → ' order by path) as path_summary
-      from analytics_events where site_id = ${SITE_ID} and anonymous_session_id = any(${sql.array(ids as string[])}) group by anonymous_session_id` : [];
+      select anonymous_session_id, string_agg(path, ' → ' order by position) as path_summary
+      from (
+        select anonymous_session_id, path, row_number() over (partition by anonymous_session_id order by occurred_at, id) as position
+        from analytics_events where site_id = ${SITE_ID} and anonymous_session_id = any(${sql.array(ids)})
+          and event_name = 'page_view' and path is not null
+      ) page_sequence where position <= 30 group by anonymous_session_id` : [];
     const pathMap = new Map(paths.map((row) => [row.anonymous_session_id, row.path_summary]));
     const activeSession = filterLabel(input.session);
     const activeVisitor = filterLabel(input.visitor);
@@ -114,7 +118,7 @@ export async function getAnalyticsDashboard(input: AnalyticsFilters = {}): Promi
       select event_name, path, occurred_at::text from analytics_events where site_id = ${SITE_ID} and anonymous_session_id = ${activeSession}
       order by occurred_at asc limit 100` : [];
 
-    const [profileRows, profileCountRows] = await Promise.all([
+    const [profileRows, profileCountRows] = area === "visitors" ? await Promise.all([
       sql<{ visitor_key: string; visits: number; returning_visits: number; events: number; first_seen: string; last_seen: string; country: string | null; channel: string | null; source: string | null; landing: string | null; exit: string | null; device: string | null; locale: string | null }[]>`
         select visitor_key, count(*)::int as visits, count(*) filter (where is_returning)::int as returning_visits,
           coalesce(sum(event_count), 0)::int as events, min(started_at)::text as first_seen, max(last_event_at)::text as last_seen,
@@ -125,14 +129,14 @@ export async function getAnalyticsDashboard(input: AnalyticsFilters = {}): Promi
         from visitor_sessions where site_id = ${SITE_ID} and visitor_key is not null and started_at >= ${start} and started_at <= ${end}
           and (${traffic} = 'all' or (${traffic} = 'valid' and traffic_class = 'valid') or (${traffic} = 'excluded' and traffic_class <> 'valid'))
           and (${channel} = '' or channel = ${channel}) and (${country} = '' or country_code = ${country})
-          and (${search} = '' or coalesce(landing_path,'') ilike '%' || ${search} || '%' or coalesce(exit_path,'') ilike '%' || ${search} || '%' or coalesce(source,'') ilike '%' || ${search} || '%')
+          and (${search} = '' or coalesce(landing_path,'') ilike '%' || ${search} || '%' or coalesce(exit_path,'') ilike '%' || ${search} || '%' or coalesce(source,'') ilike '%' || ${search} || '%' or coalesce(campaign,'') ilike '%' || ${search} || '%' or coalesce(medium,'') ilike '%' || ${search} || '%')
         group by visitor_key order by max(last_event_at) desc limit ${pageSize} offset ${offset}`,
       sql<{ count: string }[]>`
         select count(distinct visitor_key)::text as count from visitor_sessions where site_id = ${SITE_ID} and visitor_key is not null and started_at >= ${start} and started_at <= ${end}
           and (${traffic} = 'all' or (${traffic} = 'valid' and traffic_class = 'valid') or (${traffic} = 'excluded' and traffic_class <> 'valid'))
           and (${channel} = '' or channel = ${channel}) and (${country} = '' or country_code = ${country})
-          and (${search} = '' or coalesce(landing_path,'') ilike '%' || ${search} || '%' or coalesce(exit_path,'') ilike '%' || ${search} || '%' or coalesce(source,'') ilike '%' || ${search} || '%')`,
-    ]);
+          and (${search} = '' or coalesce(landing_path,'') ilike '%' || ${search} || '%' or coalesce(exit_path,'') ilike '%' || ${search} || '%' or coalesce(source,'') ilike '%' || ${search} || '%' or coalesce(campaign,'') ilike '%' || ${search} || '%' or coalesce(medium,'') ilike '%' || ${search} || '%')`,
+    ]) : [[], []];
     const profiles: VisitorProfileRow[] = profileRows.map((row) => ({
       visitorKey: row.visitor_key, visitor: row.visitor_key.slice(0, 12), visits: number(row.visits), returningVisits: number(row.returning_visits), events: number(row.events),
       firstSeen: displayTime(row.first_seen), lastSeen: displayTime(row.last_seen), country: row.country || "未知", channel: row.channel || "direct", source: row.source || "—",

@@ -25,7 +25,8 @@ test("large editorial and homepage images use modern formats", () => {
 test("search data synchronization is durable and authenticated", () => {
   const route = read("app/api/cron/search-console-sync/route.ts");
   assert.match(route, /CRON_SECRET/);
-  assert.match(route, /syncSearchConsoleMetrics\("bzmagnet"\)/);
+  assert.match(route, /runSearchConsoleCycle\("bzmagnet"\)/);
+  assert.match(route, /status: result.status/);
   assert.match(route, /status: 401/);
 });
 

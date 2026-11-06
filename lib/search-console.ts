@@ -36,7 +36,9 @@ function config() {
   const rawCredentials = process.env.GOOGLE_SEARCH_CONSOLE_SERVICE_ACCOUNT_JSON?.trim();
   if (!property || !rawCredentials) return null;
   if (!/^sc-domain:[a-z0-9.-]+$/i.test(property) && !/^https:\/\/[a-z0-9.-]+\/$/i.test(property)) throw new Error("search_console_property_invalid");
-  const account = JSON.parse(rawCredentials) as ServiceAccount;
+  let account: ServiceAccount;
+  try { account = JSON.parse(rawCredentials) as ServiceAccount; }
+  catch { throw new Error("search_console_credentials_invalid"); }
   if (!account.client_email || !account.private_key || (account.token_uri && account.token_uri !== tokenEndpoint)) throw new Error("search_console_credentials_invalid");
   return { property, account };
 }
@@ -49,7 +51,7 @@ async function accessToken(account: ServiceAccount, scope: string) {
   signer.update(unsigned);
   signer.end();
   const assertion = `${unsigned}.${signer.sign(account.private_key).toString("base64url")}`;
-  const response = await fetch(tokenEndpoint, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }), cache: "no-store" });
+  const response = await fetch(tokenEndpoint, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }), cache: "no-store", signal: AbortSignal.timeout(12_000) });
   if (!response.ok) throw new Error(`search_console_oauth_${response.status}`);
   const payload = await response.json() as { access_token?: string };
   if (!payload.access_token) throw new Error("search_console_oauth_invalid_response");
@@ -57,18 +59,35 @@ async function accessToken(account: ServiceAccount, scope: string) {
 }
 
 const isoDate = (date: Date) => date.toISOString().slice(0, 10);
-const safeErrorCode = (error: unknown) => error instanceof Error ? error.message.replace(/[^a-z0-9_-]/gi, "_").slice(0, 120) : "search_console_operation_failed";
+const safeErrorCode = (error: unknown) => {
+  if (error instanceof Error && /^(search_console_[a-z0-9_]+|admin_store_not_configured)$/.test(error.message)) return error.message;
+  if (error instanceof Error && error.name === "TimeoutError") return "search_console_timeout";
+  return "search_console_operation_failed";
+};
 
 async function recordStatus(siteId: string, settingKey: string, value: Record<string, unknown>) {
   if (!sql) return;
   await sql`
     insert into site_settings (site_id, setting_key, value, updated_at)
     values (${siteId}, ${settingKey}, ${sql.json(value as never)}, now())
-    on conflict (site_id, setting_key) do update set value = excluded.value, updated_at = now()
+    on conflict (site_id, setting_key) do update set value = site_settings.value || excluded.value, updated_at = now()
   `;
 }
 
 export async function syncSearchConsoleMetrics(siteId: string) {
+  const attemptedAt = new Date().toISOString();
+  try {
+    const result = await pullSearchConsoleMetrics(siteId, attemptedAt);
+    if (!result.configured) await recordStatus(siteId, "search_console_sync", { state: "unconfigured", attemptedAt, code: "search_console_not_configured" });
+    return result;
+  } catch (error) {
+    const code = safeErrorCode(error);
+    await recordStatus(siteId, "search_console_sync", { state: "failed", attemptedAt, code });
+    throw new Error(code);
+  }
+}
+
+async function pullSearchConsoleMetrics(siteId: string, attemptedAt: string) {
   if (!sql) throw new Error("admin_store_not_configured");
   const settings = config();
   if (!settings) return { configured: false, rows: 0, property: null };
@@ -82,22 +101,28 @@ export async function syncSearchConsoleMetrics(siteId: string) {
     headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
     body: JSON.stringify({ startDate: isoDate(start), endDate: isoDate(end), dimensions: ["date", "page"], rowLimit: 25000 }),
     cache: "no-store",
+    signal: AbortSignal.timeout(25_000),
   });
   if (!response.ok) throw new Error(`search_console_query_${response.status}`);
   const payload = await response.json() as SearchConsoleResponse;
-  const rows = (payload.rows ?? []).filter((row) => row.keys?.length === 2 && row.keys[0] && row.keys[1]);
+  const rows = (payload.rows ?? []).flatMap((row) => {
+    if (row.keys?.length !== 2 || !row.keys[0] || !row.keys[1]) return [];
+    const [metric_date, url] = row.keys;
+    return [{ id: randomUUID(), metric_date, url, clicks: Math.round(row.clicks ?? 0), impressions: Math.round(row.impressions ?? 0), ctr: row.ctr ?? 0, average_position: row.position ?? 0 }];
+  });
   await sql.begin(async (transaction) => {
-    for (const row of rows) {
-      const [metricDate, page] = row.keys!;
+    for (let index = 0; index < rows.length; index += 500) {
       await transaction`
         insert into seo_metrics (id, site_id, url, metric_date, clicks, impressions, ctr, average_position, source, metadata)
-        values (${randomUUID()}, ${siteId}, ${page}, ${metricDate}, ${Math.round(row.clicks ?? 0)}, ${Math.round(row.impressions ?? 0)}, ${row.ctr ?? 0}, ${row.position ?? 0}, 'google_search_console', ${transaction.json({ property: settings.property })})
+        select id, ${siteId}, url, metric_date, clicks, impressions, ctr, average_position, 'google_search_console', ${transaction.json({ property: settings.property })}
+        from jsonb_to_recordset(${transaction.json(rows.slice(index, index + 500))}::jsonb)
+          as incoming(id uuid, url text, metric_date date, clicks integer, impressions integer, ctr numeric, average_position numeric)
         on conflict (site_id, url, metric_date, source) do update set clicks = excluded.clicks, impressions = excluded.impressions, ctr = excluded.ctr, average_position = excluded.average_position, metadata = excluded.metadata
       `;
     }
     await transaction`
       insert into site_settings (site_id, setting_key, value, updated_at)
-      values (${siteId}, 'search_console_sync', ${transaction.json({ property: settings.property, lastSuccessAt: new Date().toISOString(), rows: rows.length })}, now())
+      values (${siteId}, 'search_console_sync', ${transaction.json({ state: "succeeded", attemptedAt, property: settings.property, lastSuccessAt: new Date().toISOString(), rows: rows.length, rowLimitReached: (payload.rows?.length ?? 0) >= 25000 })}, now())
       on conflict (site_id, setting_key) do update set value = excluded.value, updated_at = now()
     `;
   });
@@ -107,24 +132,48 @@ export async function syncSearchConsoleMetrics(siteId: string) {
 /** Submits the sitemap index to the property. It reports submission, never indexing. */
 export async function submitSearchConsoleSitemap(siteId: string, sitemapUrl = `${origin}/sitemap-index.xml`) {
   if (!sql) throw new Error("admin_store_not_configured");
-  const settings = config();
-  if (!settings) return { configured: false, submitted: false, sitemapUrl };
+  const attemptedAt = new Date().toISOString();
   try {
+    const settings = config();
+    if (!settings) {
+      const result = { configured: false, submitted: false, sitemapUrl, attemptedAt, code: "search_console_not_configured" };
+      await recordStatus(siteId, "search_console_sitemap_submission", result);
+      return result;
+    }
     const token = await accessToken(settings.account, writeScope);
     const response = await fetch(`${apiBase}/sites/${encodeURIComponent(settings.property)}/sitemaps/${encodeURIComponent(sitemapUrl)}`, {
       method: "PUT",
       headers: { authorization: `Bearer ${token}` },
       cache: "no-store",
+      signal: AbortSignal.timeout(15_000),
     });
     if (!response.ok) throw new Error(`search_console_sitemap_submit_${response.status}`);
-    const result = { configured: true, submitted: true, sitemapUrl, submittedAt: new Date().toISOString(), property: settings.property };
+    const result = { configured: true, submitted: true, sitemapUrl, attemptedAt, submittedAt: new Date().toISOString(), property: settings.property, code: null };
     await recordStatus(siteId, "search_console_sitemap_submission", result);
     return result;
   } catch (error) {
-    const result = { configured: true, submitted: false, sitemapUrl, failedAt: new Date().toISOString(), code: safeErrorCode(error), property: settings.property };
+    const result = { configured: true, submitted: false, sitemapUrl, attemptedAt, failedAt: new Date().toISOString(), code: safeErrorCode(error) };
     await recordStatus(siteId, "search_console_sitemap_submission", result);
     return result;
   }
+}
+
+export async function runSearchConsoleCycle(siteId: string) {
+  const [metrics, submission] = await Promise.allSettled([syncSearchConsoleMetrics(siteId), submitSearchConsoleSitemap(siteId)]);
+  const sync = metrics.status === "fulfilled" ? metrics.value : null;
+  const sitemap = submission.status === "fulfilled" ? submission.value : null;
+  const ok = Boolean(sync?.configured && sitemap?.submitted);
+  return {
+    status: ok ? 200 : sync?.configured === false && sitemap?.configured === false ? 409 : 502,
+    body: {
+      ok, configured: Boolean(sync?.configured || sitemap?.configured),
+      rows: sync?.rows ?? 0, property: sync?.property, startDate: sync?.startDate, endDate: sync?.endDate,
+      metricsSynced: Boolean(sync?.configured),
+      metricsCode: metrics.status === "rejected" ? safeErrorCode(metrics.reason) : undefined,
+      sitemapSubmitted: Boolean(sitemap?.submitted), sitemapUrl: sitemap?.sitemapUrl,
+      submissionCode: submission.status === "rejected" ? safeErrorCode(submission.reason) : sitemap?.code,
+    },
+  };
 }
 
 const inspectionTargets = () => {

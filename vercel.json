@@ -1,5 +1,6 @@
 {
   "crons": [
-    { "path": "/api/cron/search-console-sync", "schedule": "30 1 * * 1" }
+    { "path": "/api/cron/search-console-sync", "schedule": "30 1 * * 1" },
+    { "path": "/api/cron/inquiry-email-retry", "schedule": "15 2 * * *" }
   ]
 }

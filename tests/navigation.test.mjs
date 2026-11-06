@@ -19,7 +19,7 @@ test("drawer handles Escape and focus return", () => {
 test("desktop navigation click keeps the hovered or focused menu open", () => {
   assert.doesNotMatch(source, /onClick=\{\(\) => toggle\(/);
   for (const section of ["products", "industries", "news"]) {
-    assert.match(source, new RegExp(`onClick=\\{\\(\\) => openMenu\\("${section}"\\)\\}`));
+    assert.match(source, new RegExp(`onClick=\\{\\(\\) => toggleMenu\\("${section}"\\)\\}`));
   }
 });
 

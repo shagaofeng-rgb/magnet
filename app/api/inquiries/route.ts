@@ -1,51 +1,49 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash, randomUUID } from "node:crypto";
-import { completeAdminJob, reserveInquiryRateLimit, storeInternalLead, writeAdminJob } from "@/lib/admin-store";
-import { sendInquiryNotification } from "@/lib/inquiry-email";
-import { isValidInquiryAttribution, type InquiryAttribution } from "@/lib/inquiry-validation";
+import { storeInternalLead } from "@/lib/admin-store";
+import { companyEmail } from "@/lib/contact";
+import { deliverInquiryEmails } from "@/lib/inquiry-delivery";
+import { isSubmissionId, isValidInquiry } from "@/lib/inquiry-validation";
 
-type Inquiry = { name: string; email: string; company: string; industry?: string; material: string; process: string; consent: "on" | true; website?: string; attribution?: InquiryAttribution };
-
-const text = (value: unknown, min: number, max: number) => typeof value === "string" && value.length >= min && value.length <= max;
-function valid(value: unknown): value is Inquiry {
-  if (!value || typeof value !== "object") return false;
-  const input = value as Record<string, unknown>;
-  return text(input.name, 2, 80) && text(input.email, 3, 160) && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email as string) && text(input.company, 2, 120) && (!input.industry || text(input.industry, 0, 100)) && text(input.material, 10, 1500) && text(input.process, 10, 2500) && (input.consent === "on" || input.consent === true) && (!input.website || input.website === "") && (!input.attribution || isValidInquiryAttribution(input.attribution));
-}
-
-function sameOrigin(request: NextRequest) {
-  const sentOrigin = request.headers.get("origin");
-  return !sentOrigin || sentOrigin === request.nextUrl.origin;
-}
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   const requestId = randomUUID();
-  try {
-    if (!sameOrigin(request)) return NextResponse.json({ success: false, error: "origin_not_allowed", requestId }, { status: 403 });
-    const input: unknown = await request.json();
-    if (!valid(input)) return NextResponse.json({ success: false, error: "invalid_request", requestId }, { status: 400 });
-    const key = createHash("sha256").update(`${request.headers.get("x-forwarded-for") || "local"}:${input.email}`).digest("hex");
-    const minute = Math.floor(Date.now() / 60_000);
-    if (!(await reserveInquiryRateLimit("bzmagnet", `inquiry-rate:${key}:${minute}`))) return NextResponse.json({ success: false, error: "rate_limited", requestId }, { status: 429 });
+  const fail = (error: string, status: number) => NextResponse.json({ success: false, error, requestId }, { status });
+  if (process.env.VERCEL_ENV === "preview") return fail("preview_submission_disabled", 503);
+  const sentOrigin = request.headers.get("origin");
+  if (sentOrigin && sentOrigin !== request.nextUrl.origin) return fail("origin_not_allowed", 403);
+  const input: unknown = await request.json().catch(() => null);
+  const submissionId = request.headers.get("idempotency-key")?.toLowerCase();
+  if (!isValidInquiry(input) || (submissionId !== undefined && !isSubmissionId(submissionId))) return fail("invalid_request", 400);
 
-    const leadId = await storeInternalLead(input as Record<string, unknown>, (input.attribution || {}) as Record<string, unknown>);
-    const jobKey = `inquiry-email:${leadId}`;
-    let notificationSent = false;
-    try {
-      await writeAdminJob("bzmagnet", "inquiry_email_notification", jobKey, { leadId, requestId });
+  const leadId = submissionId || randomUUID();
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0].trim() || "local";
+  const email = input.email.toLowerCase();
+  const rateHash = createHash("sha256").update(`${ip}:${email}`).digest("hex");
+  const minute = Math.floor(Date.now() / 60_000);
+  // The reserved company address plus an explicit marker keeps our own delivery
+  // checks visible in the queue without treating them as customer enquiries.
+  const testSubmission = email === companyEmail && input.attribution?.context === "internal-delivery-check";
+  try {
+    const attribution = { ...input.attribution, ...(testSubmission ? { test_submission: true } : {}) };
+    const saved = await storeInternalLead(leadId, `inquiry-rate:${rateHash}:${minute}`, input, attribution);
+    if (!saved) return fail("rate_limited", 429);
+    if ("conflict" in saved) return fail("submission_conflict", 409);
+    let notificationSent = saved.notificationSent;
+    if (saved.created) {
       try {
-        const notification = await sendInquiryNotification(leadId, input, input.attribution || {});
-        notificationSent = notification.sent;
-        await completeAdminJob("bzmagnet", jobKey, notification.sent ? "succeeded" : "failed", notification.sent ? { messageId: notification.messageId } : { code: notification.code });
+        notificationSent = (await deliverInquiryEmails(leadId)).accepted === 1;
       } catch {
-        await completeAdminJob("bzmagnet", jobKey, "failed", { code: "email_delivery_failed" });
+        console.error("Inquiry email job could not be updated", { requestId, leadId });
       }
-    } catch (error) {
-      console.error("Inquiry notification workflow failed after lead storage", { requestId, error: error instanceof Error ? error.message : "unknown_error" });
     }
-    return NextResponse.json({ success: true, data: { id: leadId, notificationSent }, requestId }, { status: 201 });
-  } catch (error) {
-    console.error("Inquiry submission failed before lead storage", { requestId, error: error instanceof Error ? error.message : "unknown_error" });
-    return NextResponse.json({ success: false, error: "submission_failed", requestId }, { status: 500 });
+    return NextResponse.json({
+      success: true, data: { id: leadId, notificationSent, ...(testSubmission ? { testSubmission: true } : {}) }, requestId,
+    }, { status: saved.created ? 201 : 200 });
+  } catch {
+    console.error("Inquiry could not be saved", { requestId });
+    return fail("submission_failed", 500);
   }
 }

@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { IconActivity, IconChartBar, IconInfoCircle } from "@tabler/icons-react";
-import { adminModules, requireAdmin, sites } from "@/lib/admin-console";
+import { adminModules, canReadInquiry, requireAdmin, sites } from "@/lib/admin-console";
 import { logout, syncSearchConsole, validateNewsSources } from "@/lib/admin-actions";
-import { getAdminModuleData } from "@/lib/admin-store";
+import { getAdminModuleData, getInquiryDetail } from "@/lib/admin-store";
 import { getAnalyticsDashboard, type AnalyticsArea, type AnalyticsFilters } from "@/lib/admin-analytics";
 import { AdminSidebar } from "@/app/admin/AdminSidebar";
 import { AdminDateFields } from "@/app/admin/AdminDateFields";
+import { AdminActionButton } from "@/app/admin/AdminActionButton";
+
+export const maxDuration = 120;
 
 type Params = { siteId: string; section?: string[] };
 type Search = Record<string, string | string[] | undefined>;
@@ -15,8 +18,8 @@ const copy: Record<string, { title: string; description: string }> = {
   overview: { title: "数据总览", description: "仅展示经过质量筛选的第一方访问、询盘与内容运行数据。" },
   traffic: { title: "流量分析", description: "按真实来源、国家、设备、语言与入口页面分析访问。" },
   seo: { title: "SEO 数据", description: "查看已同步的搜索表现与技术 SEO 数据。" },
-  products: { title: "产品管理", description: "管理产品目录、多语言内容与发布状态。" },
-  news: { title: "新闻管理", description: "管理新闻、文章、来源与发布状态。" },
+  products: { title: "产品管理", description: "核对前台产品、后台目录和发布状态。" },
+  news: { title: "新闻管理", description: "查看已保存的文章及发布状态。" },
   "news-operations": { title: "News 运营", description: "查看来源验证、任务队列与运行状态。" },
   forms: { title: "客户表单", description: "查看已经安全保存的询盘与来源上下文。" },
   links: { title: "内外链审计", description: "查看链接检查结果、异常与复检任务。" },
@@ -32,9 +35,19 @@ function PageControl({ disabled, href, children }: { disabled: boolean; href: st
   return disabled ? <span className="admin-page-disabled" aria-disabled="true">{children}</span> : <Link href={href}>{children}</Link>;
 }
 
-function compactBars({ title, items }: { title: string; items: Array<{ label: string; value: number }> }) {
+function compactBars({ title, items, emptyText = "当前范围暂无可展示数据。" }: { title: string; items: Array<{ label: string; value: number }>; emptyText?: string }) {
   const high = Math.max(...items.map((item) => item.value), 1);
-  return <section className="admin-panel"><h2>{title}</h2>{items.length ? <div className="admin-breakdown-list">{items.map((item) => <div key={item.label}><div><span>{item.label}</span><strong>{number.format(item.value)}</strong></div><i><b style={{ width: String(Math.max((item.value / high) * 100, 2)).concat("%") }} /></i></div>)}</div> : <p className="admin-empty">当前范围暂无真实数据。</p>}</section>;
+  return <section className="admin-panel" key={title}><h2>{title}</h2>{items.length ? <div className="admin-breakdown-list">{items.map((item) => <div key={item.label}><div><span>{item.label}</span><strong>{number.format(item.value)}</strong></div><i><b style={{ width: `${(item.value / high) * 100}%` }} /></i></div>)}</div> : <p className="admin-empty">{emptyText}</p>}</section>;
+}
+
+function DailyChartData({ headings, rows }: { headings: string[]; rows: (string | number)[][] }) {
+  return <details className="admin-chart-data"><summary>查看每日数据</summary>
+    <div className="admin-table-scroll" tabIndex={0} role="region" aria-label="每日数据">
+      <table><thead><tr>{headings.map((label) => <th key={label} scope="col">{label}</th>)}</tr></thead>
+        <tbody>{rows.map(([date, ...values]) => <tr key={date}><th scope="row">{date}</th>{values.map((value, index) => <td key={index}>{value}</td>)}</tr>)}</tbody>
+      </table>
+    </div>
+  </details>;
 }
 
 function AnalyticsWorkspace({ area, data, route }: { area: AnalyticsArea; data: Awaited<ReturnType<typeof getAnalyticsDashboard>>; route: string }) {
@@ -73,9 +86,9 @@ function AnalyticsWorkspace({ area, data, route }: { area: AnalyticsArea; data: 
     <section className="admin-metrics admin-metrics-dense">
       {[[ "页面浏览", data.totals.views, "有效第一方事件" ], [ "独立访客", data.totals.visitors, "以匿名访客 ID 去重" ], [ "有效会话", data.totals.sessions, "当前范围" ], [ "回访会话", data.totals.returning, "同一匿名访客再次访问" ], [ "已保存询盘", data.totals.leads, "以数据库入库记录计数" ], [ "已隔离流量", data.totals.excluded, "不进入正式访问指标" ]].map(([label, value, detail]) => <article key={String(label)}><small>{label}</small><strong>{data.connected ? number.format(Number(value)) : "—"}</strong><em>{detail}</em></article>)}
     </section>
-    <section className="admin-panel admin-trend-panel"><div className="admin-section-heading"><h2><IconChartBar size={20} aria-hidden="true" />有效流量趋势</h2><small>{data.from} 至 {data.to} · 按日页面浏览</small></div>{data.trend.length ? <div className="admin-bar-chart" role="img" aria-label={`从 ${data.from} 至 ${data.to} 的有效页面浏览趋势；共 ${number.format(data.totals.views)} 次页面浏览`}>{data.trend.map((point) => <div className="admin-bar-group" key={point.label}><div className="admin-bars"><span style={{ height: String(Math.max((point.views / maxTrend) * 100, 2)).concat("%") }} title={String(point.label).concat(" ").concat(String(point.views))} /></div><small>{point.label}</small></div>)}</div> : <p className="admin-empty">{data.connected ? "当前时间范围暂无有效访问。" : "数据连接恢复后显示真实趋势。"}</p>}</section>
+    <section className="admin-panel admin-trend-panel"><div className="admin-section-heading"><h2><IconChartBar size={20} aria-hidden="true" />有效流量趋势</h2><small>{data.from} 至 {data.to} · 按日页面浏览</small></div>{data.trend.length ? <div className="admin-bar-chart" role="img" aria-label={`从 ${data.from} 至 ${data.to} 的有效页面浏览趋势；共 ${number.format(data.totals.views)} 次页面浏览`}>{data.trend.map((point) => <div className="admin-bar-group" key={point.label}><div className="admin-bars"><span style={{ height: String((point.views / maxTrend) * 100).concat("%") }} title={String(point.label).concat(" ").concat(String(point.views))} /></div><small>{point.label.slice(5)}</small></div>)}</div> : <p className="admin-empty">{data.connected ? "当前时间范围暂无有效访问。" : "数据连接恢复后显示真实趋势。"}</p>}{data.trend.length > 0 && <DailyChartData headings={["日期", "浏览"]} rows={data.trend.map((point) => [point.label, point.views])} />}</section>
     <div className="admin-breakdown-grid">{compactBars({ title: "来源渠道", items: data.channels })}{compactBars({ title: "访问国家/地区", items: data.countries })}{compactBars({ title: "访问设备", items: data.devices })}</div>
-    {(area === "overview" || area === "page-performance") ? <section className="admin-panel admin-table"><h2>页面表现</h2><div className="admin-table-scroll"><table><thead><tr><th>页面</th><th>浏览</th><th>访客</th><th>表单提交事件</th></tr></thead><tbody>{data.pages.map((item) => <tr key={item.path}><td>{item.path}</td><td>{number.format(item.views)}</td><td>{number.format(item.visitors)}</td><td>{number.format(item.leads)}</td></tr>)}</tbody></table></div>{!data.pages.length ? <p className="admin-empty">当前范围内暂无有效页面数据。</p> : <p className="admin-data-note">表单提交事件源于站点追踪；已保存询盘以客户表单数据为准。</p>}</section> : null}
+    {(area === "overview" || area === "page-performance") ? <section className="admin-panel admin-table"><h2>页面表现</h2><div className="admin-table-scroll" tabIndex={0} role="region" aria-label="可滚动数据表"><table><thead><tr><th>页面</th><th>浏览</th><th>逐日访客合计</th><th>表单提交事件</th></tr></thead><tbody>{data.pages.map((item) => <tr key={item.path}><td>{item.path}</td><td>{number.format(item.views)}</td><td>{number.format(item.visitors)}</td><td>{number.format(item.leads)}</td></tr>)}</tbody></table></div>{!data.pages.length ? <p className="admin-empty">当前范围内暂无有效页面数据。</p> : <p className="admin-data-note">表单提交事件源于站点追踪；已保存询盘以客户表单数据为准。</p>}</section> : null}
     <section className="admin-panel admin-table"><div className="admin-table-heading"><div><h2>{isVisitorView ? "匿名访客归属" : area === "paths" ? "访问路径会话" : "真实来源会话"}</h2><p>显示 {activeTotal ? (data.filters.page - 1) * data.filters.pageSize + 1 : 0}–{Math.min(data.filters.page * data.filters.pageSize, activeTotal)} / {activeTotal} 条</p></div><span className="admin-page-size-label">每页 25 / 50 / 100 条</span></div>
       <div className="admin-table-scroll">{isVisitorView ? <table><thead><tr><th>匿名访客</th><th>访问次数</th><th>首次 / 最近访问</th><th>国家</th><th>最近来源</th><th>入口 → 退出</th><th>设备 / 语言</th><th>事件</th><th>详情</th></tr></thead><tbody>{data.profiles.map((row) => <tr key={row.visitorKey}><td>{row.visitor}<small>受保护匿名标识</small></td><td>{row.visits}<small>其中回访 {row.returningVisits}</small></td><td>{row.firstSeen}<small>{row.lastSeen}</small></td><td>{row.country}</td><td>{row.channel}<small>{row.source}</small></td><td>{row.landing}<small>{row.exit}</small></td><td>{row.device}<small>{row.locale}</small></td><td>{row.events}</td><td><Link className="admin-detail-link" href={url({ visitor: row.visitorKey, session: undefined })}>查看全部路径</Link></td></tr>)}</tbody></table> : <table><thead><tr><th>匿名访客</th><th>第几次访问</th><th>国家</th><th>渠道 / 来源</th><th>入口 → 退出</th><th>设备 / 语言</th><th>事件</th><th>时间</th><th>路径</th></tr></thead><tbody>{data.visitors.map((row) => <tr key={row.id}><td>{row.visitor}<small>{row.returning ? "回访" : "首次"}</small></td><td>{row.visitNumber || "历史记录"}</td><td>{row.country}</td><td>{row.channel}<small>{row.source}</small></td><td>{row.landing}<small>{row.exit}</small></td><td>{row.device}<small>{row.locale}</small></td><td>{row.events}</td><td>{row.startedAt}</td><td><details><summary>查看</summary><span>{row.pathSummary}</span>{row.trafficClass !== "valid" ? <small>已隔离：{row.excludedReason || row.trafficClass}</small> : null}</details></td></tr>)}</tbody></table>}</div>
       {!(isVisitorView ? data.profiles.length : data.visitors.length) ? <p className="admin-empty">此筛选条件下暂无记录。</p> : null}
@@ -96,6 +109,10 @@ export default async function AdminModulePage({ params, searchParams }: { params
   const title = copy[area[0]] || copy.overview;
   const route = String("/admin/").concat(siteId).concat("/").concat(area[0]);
   const isAnalytics = analyticsAreas.has(area[0] as AnalyticsArea);
+  const isForms = area[0] === "forms";
+  const isSeo = area[0] === "seo";
+  const canOpenLead = isForms && canReadInquiry(session.role);
+  const selectedLead = isForms && typeof search.lead === "string" ? search.lead : undefined;
   const defaultRange = isAnalytics ? "month" : "90d";
   const filters: AnalyticsFilters = {
     range: search.range === "today" || search.range === "week" || search.range === "month" || search.range === "90d" || search.range === "custom" ? search.range : defaultRange,
@@ -106,7 +123,12 @@ export default async function AdminModulePage({ params, searchParams }: { params
     session: typeof search.session === "string" ? search.session : undefined,
     visitor: typeof search.visitor === "string" ? search.visitor : undefined,
   };
-  const [analytics, legacy] = await Promise.all([isAnalytics ? getAnalyticsDashboard(filters) : Promise.resolve(null), isAnalytics ? Promise.resolve(null) : getAdminModuleData(siteId, area[0], { range: filters.range, from: filters.from, to: filters.to, search: filters.search, page: filters.page, pageSize: filters.pageSize })]);
+  const [analytics, legacy, inquiryDetail] = await Promise.all([
+    isAnalytics ? getAnalyticsDashboard(filters, area[0] as AnalyticsArea) : null,
+    isAnalytics ? null : getAdminModuleData(siteId, area[0], filters),
+    canOpenLead && selectedLead ? getInquiryDetail(siteId, selectedLead) : null,
+  ]);
+  const maxSeoTrend = Math.max(...(legacy?.trend.map((item) => item.value) || []), 1);
   const canConfigure = session.role === "super_admin" || session.role === "site_admin";
   const legacyUrl = (changes: Record<string, string | number | undefined>) => {
     const query = new URLSearchParams();
@@ -114,6 +136,7 @@ export default async function AdminModulePage({ params, searchParams }: { params
     if (filters.from) query.set("from", filters.from);
     if (filters.to) query.set("to", filters.to);
     if (filters.search) query.set("search", filters.search);
+    if (selectedLead) query.set("lead", selectedLead);
     query.set("pageSize", String(filters.pageSize));
     Object.entries(changes).forEach(([key, value]) => value === undefined || value === "" ? query.delete(key) : query.set(key, String(value)));
     return String(route).concat("?").concat(query.toString());
@@ -124,7 +147,7 @@ export default async function AdminModulePage({ params, searchParams }: { params
     <main className="admin-main">
       <header className="admin-page-head"><div><p className="admin-eyebrow">BZMAGNET / {site.name}</p><h1>{title.title}</h1><p>{title.description}</p></div><div className="admin-live-state"><IconInfoCircle size={17} aria-hidden="true" />时区：{site.timezone}</div></header>
       {analytics ? <AnalyticsWorkspace area={area[0] as AnalyticsArea} data={analytics} route={route} /> : legacy ? <>
-        <section className={String("admin-sync ").concat(legacy.connected ? "ready" : "")}><IconActivity size={20} aria-hidden="true" />{legacy.connected ? <>站点数据已连接 <small>筛选范围：{legacy.from} 至 {legacy.to}{area[0] === "seo" ? ` · 最近同步：${displayTime(legacy.lastSynced, site.timezone)} · 最新搜索数据：${legacy.lastDataAt || "暂无"}` : ""}</small></> : <>数据库尚未连接 <small>请检查数据库连接配置。</small></>}</section>
+        <section className={String("admin-sync ").concat(legacy.connected ? "ready" : "")}><IconActivity size={20} aria-hidden="true" />{legacy.connected ? <>站点数据已连接 <small>筛选范围：{legacy.from} 至 {legacy.to}{isSeo ? ` · 最新搜索数据日期：${legacy.lastDataAt || "暂无"}` : ""}</small></> : <>数据库尚未连接 <small>请检查数据库连接配置。</small></>}</section>
         <form className="admin-filter-panel" method="get">
           <AdminDateFields key={`${filters.range}:${legacy.from}:${legacy.to}`} range={filters.range || "today"} from={legacy.from} to={legacy.to} />
           <label className="admin-filter-search">搜索<input name="search" defaultValue={filters.search} placeholder={area[0] === "seo" ? "页面 URL" : area[0] === "forms" ? "编号、产品或来源" : "名称、URL 或设置项"} /></label>
@@ -132,13 +155,44 @@ export default async function AdminModulePage({ params, searchParams }: { params
           <input type="hidden" name="page" value="1" />
           <button type="submit">应用筛选</button><Link href={route}>重置</Link>
         </form>
-        <div className="admin-quick-range" aria-label="快捷时间范围">{([["today", "今天"], ["week", "本周"], ["month", "本月"], ["90d", "90 天"], ["custom", "自定义"]] as const).map(([range, label]) => <Link key={range} className={filters.range === range ? "active" : ""} href={legacyUrl({ range, from: undefined, to: undefined, page: 1 })}>{label}</Link>)}</div>
-        {canConfigure && area[0] === "seo" ? <section className="admin-action"><div><strong>Google Search Console</strong><span>{legacy.connected ? "同步后更新当前站点的搜索表现。" : "数据库连接恢复后可同步搜索数据。"}</span></div><form action={syncSearchConsole}><input type="hidden" name="siteId" value={siteId} /><button type="submit" disabled={!legacy.connected}>同步搜索数据</button></form></section> : null}
-        {canConfigure && area[0] === "news-operations" ? <section className="admin-action"><div><strong>来源目录核验</strong><span>只检查待核验来源状态，不发布内容。</span></div><form action={validateNewsSources}><input type="hidden" name="siteId" value={siteId} /><button type="submit" disabled={!legacy.connected}>核验下一批来源</button></form></section> : null}
-        <section className="admin-metrics admin-metrics-dense">{legacy.metrics.map((metric) => <Link key={metric.label} href={metric.href}><article><small>{metric.label}</small><strong>{metric.value}</strong>{metric.detail ? <em>{metric.detail}</em> : null}</article></Link>)}</section>
-        {area[0] === "seo" ? <section className="admin-panel admin-trend-panel"><div className="admin-section-heading"><h2><IconChartBar size={20} aria-hidden="true" />搜索表现趋势</h2><small>{legacy.from} 至 {legacy.to} · Google Search Console</small></div>{legacy.trend.length ? <div className="admin-bar-chart" role="img" aria-label={`从 ${legacy.from} 至 ${legacy.to} 的 Search Console 每日点击趋势`}>{legacy.trend.map((point) => <div className="admin-bar-group" key={point.label}><div className="admin-bars"><span style={{ height: `${Math.max((point.value / Math.max(...legacy.trend.map((item) => item.value), 1)) * 100, 2)}%` }} title={`${point.label}：${point.value} 次点击、${point.secondary || 0} 次展示`} /></div><small>{point.label}</small></div>)}</div> : <p className="admin-empty">当前范围暂无已同步的 Search Console 数据。</p>}</section> : null}
-        <div className="admin-breakdown-grid">{legacy.breakdowns.map((breakdown) => compactBars({ title: breakdown.title, items: breakdown.items }))}</div>
-        <section className="admin-panel admin-table"><div className="admin-table-heading"><div><h2>{legacy.table.title}</h2><p>显示 {legacy.totalRows ? (legacy.page - 1) * legacy.pageSize + 1 : 0}–{Math.min(legacy.page * legacy.pageSize, legacy.totalRows)} / {legacy.totalRows} 条</p></div><span className="admin-page-size-label">固定每页 {legacy.pageSize} 条</span></div><div className="admin-table-scroll"><table><thead><tr>{legacy.table.columns.map((column) => <th key={column}>{column}</th>)}</tr></thead><tbody>{legacy.table.rows.map((row, index) => <tr key={String(index)}>{row.map((cell, cellIndex) => <td key={String(cellIndex)}>{cell}</td>)}</tr>)}</tbody></table></div>{!legacy.table.rows.length ? <p className="admin-empty">{legacy.table.emptyText}</p> : null}<nav className="admin-pagination" aria-label="后台列表分页"><PageControl disabled={legacy.page <= 1} href={legacyUrl({ page: Math.max(1, legacy.page - 1) })}>上一页</PageControl><span>第 {legacy.page} / {Math.max(1, Math.ceil(legacy.totalRows / legacy.pageSize))} 页</span><PageControl disabled={legacy.page >= Math.max(1, Math.ceil(legacy.totalRows / legacy.pageSize))} href={legacyUrl({ page: legacy.page + 1 })}>下一页</PageControl>{[25, 50, 100].map((size) => <Link key={size} className={size === legacy.pageSize ? "active" : ""} href={legacyUrl({ page: 1, pageSize: size })}>{size}/页</Link>)}</nav></section>
+        <div className="admin-quick-range" aria-label="快捷时间范围">{([["today", "今天"], ["week", "本周"], ["month", "本月"], ["90d", "90 天"], ["custom", "自定义"]] as const).map(([range, label]) => <Link key={range} className={filters.range === range ? "active" : ""} href={legacyUrl({ range, from: undefined, to: undefined, page: 1, lead: undefined })}>{label}</Link>)}</div>
+        {isSeo ? <section className="admin-action" aria-label="Google Search Console 连接">
+          <div>
+            <strong>Google Search Console</strong>
+            <span>搜索数据同步 {legacy.google?.sync?.state === "failed" ? "失败" : legacy.google?.sync?.state === "unconfigured" ? "待配置" : legacy.google?.sync?.lastSuccessAt ? "成功" : "待同步"}
+              {legacy.google?.sync?.lastSuccessAt ? ` · 上次成功 ${displayTime(legacy.google.sync.lastSuccessAt, site.timezone)}` : ""}
+              {legacy.google?.sync?.code ? ` · ${legacy.google.sync.code}` : ""}
+            </span>
+            <span>站点地图 {legacy.google?.sitemap?.submitted === true ? "Google API 已接受" : legacy.google?.sitemap?.submitted === false ? "提交未成功" : "暂无提交记录"}
+              {legacy.google?.sitemap?.submittedAt ? ` · 上次成功 ${displayTime(legacy.google.sitemap.submittedAt, site.timezone)}` : ""}
+              {legacy.google?.sitemap?.code ? ` · ${legacy.google.sitemap.code}` : ""}
+              {legacy.google?.sitemap?.attemptedAt ? ` · 最近尝试 ${displayTime(legacy.google.sitemap.attemptedAt, site.timezone)}` : ""}
+            </span>
+            <span>定时运行于每周一（北京时间）。抓取和收录状态以 Search Console 为准。</span>
+          </div>
+          {canConfigure && <form action={syncSearchConsole}><input type="hidden" name="siteId" value={siteId} /><AdminActionButton label="同步并提交站点地图" pendingLabel="正在同步和提交…" disabled={!legacy.connected} /></form>}
+        </section> : null}
+        {area[0] === "news-operations" ? <section className="admin-action">
+          <div><strong>自动采集与发布已暂停</strong><span>来源核验仅更新目录状态。Blog 与该任务分开管理。</span></div>
+          {canConfigure && <form action={validateNewsSources}><input type="hidden" name="siteId" value={siteId} /><AdminActionButton label="核验下一批来源" pendingLabel="正在核验…" disabled={!legacy.connected} /></form>}
+        </section> : null}
+        {selectedLead ? <section className="admin-panel admin-inquiry" aria-labelledby="inquiry-details">
+          <div className="admin-table-heading"><div><h2 id="inquiry-details">询盘详情</h2>{inquiryDetail && <p>{inquiryDetail.id} · {inquiryDetail.createdAt}{inquiryDetail.attribution.test_submission ? " · 测试" : ""}</p>}</div><Link href={legacyUrl({ lead: undefined })}>关闭详情</Link></div>
+          {!canOpenLead ? <p className="admin-empty">当前账号没有读取询盘内容的权限。</p> : !inquiryDetail ? <p className="admin-empty">找不到该询盘。</p> : <>
+            <p><strong>{inquiryDetail.emailStatus}</strong>{inquiryDetail.emailResult?.attempt ? ` · 尝试 ${inquiryDetail.emailResult.attempt} 次` : ""}{inquiryDetail.emailResult?.code ? ` · ${inquiryDetail.emailResult.code}` : ""}</p>
+            {inquiryDetail.inquiry ? <dl className="admin-inquiry-fields">{[
+              ["姓名", inquiryDetail.inquiry.name], ["邮箱", inquiryDetail.inquiry.email], ["公司", inquiryDetail.inquiry.company],
+              ["行业", inquiryDetail.inquiry.industry], ["产品", inquiryDetail.attribution.product_name], ["来源页面", inquiryDetail.attribution.source],
+              ["落地页", inquiryDetail.attribution.landing_page], ["来源站点", inquiryDetail.attribution.referrer_host],
+              ["推广来源", inquiryDetail.attribution.utm_source], ["推广媒介", inquiryDetail.attribution.utm_medium], ["推广活动", inquiryDetail.attribution.utm_campaign],
+              ["物料", inquiryDetail.inquiry.material], ["工艺要求", inquiryDetail.inquiry.process],
+            ].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || "—"}</dd></div>)}</dl> : <p className="admin-empty">暂时无法读取此记录的加密内容。</p>}
+          </>}
+        </section> : null}
+        <section className="admin-metrics admin-metrics-dense">{legacy.metrics.map((metric) => <article key={metric.label}><small>{metric.label}</small><strong>{metric.value}</strong>{metric.detail ? <em>{metric.detail}</em> : null}</article>)}</section>
+        {area[0] === "seo" ? <section className="admin-panel admin-trend-panel"><div className="admin-section-heading"><h2><IconChartBar size={20} aria-hidden="true" />搜索表现趋势</h2><small>{legacy.from} 至 {legacy.to} · Google Search Console</small></div>{legacy.trend.length ? <div className="admin-bar-chart" role="img" aria-label={`从 ${legacy.from} 至 ${legacy.to} 的 Search Console 每日点击趋势`}>{legacy.trend.map((point) => <div className="admin-bar-group" key={point.label}><div className="admin-bars"><span style={{ height: `${(point.value / maxSeoTrend) * 100}%` }} title={`${point.label}：${point.value} 次点击、${point.secondary || 0} 次展示`} /></div><small>{point.label.slice(5)}</small></div>)}</div> : <p className="admin-empty">当前范围暂无已同步的 Search Console 数据。</p>}{legacy.trend.length > 0 && <DailyChartData headings={["日期", "点击", "展示"]} rows={legacy.trend.map((point) => [point.label, point.value, point.secondary ?? "—"])} />}</section> : null}
+        <div className="admin-breakdown-grid">{legacy.breakdowns.map(compactBars)}</div>
+        <section className="admin-panel admin-table"><div className="admin-table-heading"><div><h2>{legacy.table.title}</h2><p>显示 {legacy.totalRows ? (legacy.page - 1) * legacy.pageSize + 1 : 0}–{Math.min(legacy.page * legacy.pageSize, legacy.totalRows)} / {legacy.totalRows} 条</p></div><span className="admin-page-size-label">固定每页 {legacy.pageSize} 条</span></div><div className="admin-table-scroll" tabIndex={0} role="region" aria-label="可滚动数据表"><table><thead><tr>{legacy.table.columns.map((column) => <th key={column}>{column}</th>)}</tr></thead><tbody>{legacy.table.rows.map((row, index) => <tr key={String(index)}>{row.map((cell, cellIndex) => <td key={String(cellIndex)}>{canOpenLead && cellIndex === 0 && legacy.table.recordIds?.[index] ? <Link prefetch={false} href={legacyUrl({ lead: legacy.table.recordIds[index], page: legacy.page })}>{cell}</Link> : cell}</td>)}</tr>)}</tbody></table></div>{!legacy.table.rows.length ? <p className="admin-empty">{legacy.table.emptyText}</p> : null}<nav className="admin-pagination" aria-label="后台列表分页"><PageControl disabled={legacy.page <= 1} href={legacyUrl({ page: Math.max(1, legacy.page - 1) })}>上一页</PageControl><span>第 {legacy.page} / {Math.max(1, Math.ceil(legacy.totalRows / legacy.pageSize))} 页</span><PageControl disabled={legacy.page >= Math.max(1, Math.ceil(legacy.totalRows / legacy.pageSize))} href={legacyUrl({ page: legacy.page + 1 })}>下一页</PageControl>{[25, 50, 100].map((size) => <Link key={size} className={size === legacy.pageSize ? "active" : ""} href={legacyUrl({ page: 1, pageSize: size })}>{size}/页</Link>)}</nav></section>
       </> : null}
     </main>
   </div>;

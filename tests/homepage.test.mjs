@@ -14,9 +14,10 @@ test("homepage has the current required sections in order", () => {
   }
 });
 
-test("homepage uses one h1 and only hero is priority", () => {
+test("homepage uses one h1, includes the full quote checklist, and only preloads the hero", () => {
   assert.equal((page.match(/<h1/g) || []).length, 1);
-  assert.equal((page.match(/\bpriority\b/g) || []).length, 1);
+  assert.equal((page.match(/\bpreload\b/g) || []).length, 1);
+  assert.match(page, /copy\.checklist\.map\(/);
 });
 
 test("generated media records are approved and owned", () => {
@@ -42,5 +43,5 @@ test("inquiry attribution is allow-listed", () => {
   const validator = fs.readFileSync("lib/inquiry-validation.ts", "utf8");
   for (const key of ["context", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"]) assert.match(validator, new RegExp(key));
   assert.match(validator, /attributionKeys/);
-  assert.match(api, /isValidInquiryAttribution/);
+  assert.match(api, /isValidInquiry\(input\)/);
 });

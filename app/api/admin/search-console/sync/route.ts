@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { submitSearchConsoleSitemap, syncSearchConsoleMetrics } from "@/lib/search-console";
+import { runSearchConsoleCycle } from "@/lib/search-console";
 
 export const runtime = "nodejs";
+export const maxDuration = 120;
 
 function authorized(request: NextRequest) {
   const authorization = request.headers.get("authorization");
@@ -10,23 +11,6 @@ function authorized(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   if (!authorized(request)) return NextResponse.json({ ok: false, code: "unauthorized" }, { status: 401 });
-  try {
-    const metrics = await syncSearchConsoleMetrics("bzmagnet");
-    if (!metrics.configured) return NextResponse.json({ ok: false, configured: false, rows: 0 }, { status: 409 });
-    const submission = await submitSearchConsoleSitemap("bzmagnet");
-    return NextResponse.json({
-      ok: true,
-      configured: true,
-      rows: metrics.rows,
-      property: metrics.property,
-      startDate: metrics.startDate,
-      endDate: metrics.endDate,
-      sitemapSubmitted: submission.submitted,
-      sitemapUrl: submission.sitemapUrl,
-      submissionCode: "code" in submission ? submission.code : undefined,
-    });
-  } catch (error) {
-    const code = error instanceof Error ? error.message.replace(/[^a-z0-9_-]/gi, "_").slice(0, 120) : "search_console_sync_failed";
-    return NextResponse.json({ ok: false, code }, { status: 502 });
-  }
+  const result = await runSearchConsoleCycle("bzmagnet");
+  return NextResponse.json(result.body, { status: result.status });
 }

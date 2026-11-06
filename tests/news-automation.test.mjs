@@ -6,7 +6,10 @@ const read = (path) => fs.readFileSync(path, "utf8");
 
 test("News automation is unscheduled and Search Console sync runs weekly", () => {
   const config = JSON.parse(read("vercel.json"));
-  assert.deepEqual(config.crons, [{ path: "/api/cron/search-console-sync", schedule: "30 1 * * 1" }]);
+  assert.deepEqual(config.crons, [
+    { path: "/api/cron/search-console-sync", schedule: "30 1 * * 1" },
+    { path: "/api/cron/inquiry-email-retry", schedule: "15 2 * * *" },
+  ]);
 });
 
 test("News automation has a fail-closed durable store, internal generator, lock and 48-hour gate", () => {
